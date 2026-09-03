@@ -15,40 +15,64 @@ export default function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
     case PublishTargetStatus.SCHEDULED:
       styles = 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30';
       dotColor = 'bg-indigo-400';
+      break;
+
+    case 'DUE':
+    case PublishTargetStatus.DUE:
+      styles = 'bg-yellow-500/10 text-yellow-300 border-yellow-500/30';
+      dotColor = 'bg-yellow-400';
       pulse = true;
       break;
+
     case PostStatus.PROCESSING:
     case PublishTargetStatus.PROCESSING:
-      styles = 'bg-amber-500/10 text-amber-300 border-amber-500/30';
-      dotColor = 'bg-amber-400';
+      styles = 'bg-purple-500/10 text-purple-300 border-purple-500/30';
+      dotColor = 'bg-purple-400';
       pulse = true;
       break;
+
+    case PostStatus.PUBLISHED_MOCK:
+    case PublishTargetStatus.PUBLISHED_MOCK:
     case PostStatus.PUBLISHED:
     case PublishTargetStatus.PUBLISHED:
       styles = 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30';
       dotColor = 'bg-emerald-400';
       break;
+
+    case PostStatus.RETRYING:
+    case PublishTargetStatus.RETRYING:
+      styles = 'bg-amber-500/10 text-amber-300 border-amber-500/30';
+      dotColor = 'bg-amber-400';
+      pulse = true;
+      break;
+
+    case PostStatus.PARTIALLY_FAILED:
+      styles = 'bg-orange-500/10 text-orange-300 border-orange-500/30';
+      dotColor = 'bg-orange-400';
+      break;
+
     case PostStatus.FAILED:
     case PublishTargetStatus.FAILED:
       styles = 'bg-rose-500/10 text-rose-300 border-rose-500/30';
       dotColor = 'bg-rose-400';
       break;
-    case PublishTargetStatus.RETRYING:
-      styles = 'bg-orange-500/10 text-orange-300 border-orange-500/30';
-      dotColor = 'bg-orange-400';
-      pulse = true;
-      break;
+
     case PublishTargetStatus.REAUTH_REQUIRED:
       styles = 'bg-fuchsia-500/10 text-fuchsia-300 border-fuchsia-500/30';
       dotColor = 'bg-fuchsia-400';
       break;
+
     case PostStatus.CANCELLED:
     case PublishTargetStatus.CANCELLED:
+    case PublishTargetStatus.SKIPPED:
       styles = 'bg-zinc-800/60 text-zinc-400 border-zinc-700/30';
       dotColor = 'bg-zinc-500';
       break;
+
     case PostStatus.DRAFT:
     case PublishTargetStatus.PENDING:
+    case PublishTargetStatus.SELECTED:
+    case PublishTargetStatus.MOCK_READY:
       styles = 'bg-blue-500/10 text-blue-300 border-blue-500/30';
       dotColor = 'bg-blue-400';
       break;
@@ -61,7 +85,7 @@ export default function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
       className={`inline-flex items-center gap-1.5 rounded-full font-mono font-medium tracking-wide uppercase border ${styles} ${sizeClass}`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${dotColor} ${pulse ? 'animate-pulse' : ''}`} />
-      {status.replace('_', ' ')}
+      {status.replace(/_/g, ' ')}
     </span>
   );
 }

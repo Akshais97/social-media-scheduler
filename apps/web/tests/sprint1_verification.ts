@@ -108,7 +108,7 @@ function runTests() {
   assert(sampleDraftJson.version === '1.0', 'Draft JSONB specifies version 1.0');
   assert(sampleDraftJson.source === 'manual_upload', 'Draft JSONB specifies manual_upload source');
   assert(
-    sampleDraftJson.media.every((m) => m.mediaAssetId && !m.mediaAssetId.startsWith('http')),
+    sampleDraftJson.media!.every((m) => m.mediaAssetId && !m.mediaAssetId.startsWith('http')),
     'Draft JSONB references mediaAssetId, never signed URLs'
   );
 

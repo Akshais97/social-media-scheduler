@@ -143,7 +143,7 @@ export default function PostsPage() {
                     {/* Targets */}
                     <div className="flex items-center gap-2">
                       <span className="text-zinc-400">Targets:</span>
-                      {post.publishTargets.map((t) => (
+                      {(post.publishTargets || post.targets || []).map((t: any) => (
                         <span
                           key={t.id}
                           className="flex items-center gap-1 bg-zinc-900 border border-white/5 px-2 py-0.5 rounded text-[10px]"

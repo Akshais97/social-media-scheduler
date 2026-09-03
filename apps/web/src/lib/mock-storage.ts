@@ -3,6 +3,8 @@ import {
   SocialSchedulerMediaStatus,
   SocialSchedulerPlatform,
   SocialSchedulerTargetStatus,
+  SocialPublishAttempt,
+  SocialPublishAttemptStatus,
   Workspace,
   Sprint1ScheduledPost,
   Sprint1MediaAsset,
@@ -15,6 +17,7 @@ const STORAGE_KEYS = {
   WORKSPACES: 'sakhaa_scheduler_workspaces_sprint1',
   ACTIVE_WS: 'sakhaa_scheduler_active_ws_sprint1',
   MEDIA: 'sakhaa_scheduler_media_sprint1',
+  ATTEMPTS: 'sakhaa_scheduler_attempts_sprint2',
 };
 
 export const DEFAULT_WORKSPACES: Workspace[] = [
@@ -207,6 +210,7 @@ const INITIAL_SPRINT1_POSTS: Sprint1ScheduledPost[] = [
 ];
 
 let inMemoryPosts: Sprint1ScheduledPost[] = [...INITIAL_SPRINT1_POSTS];
+let inMemoryAttempts: SocialPublishAttempt[] = [];
 
 export const sprint1Storage = {
   getWorkspaces: (): Workspace[] => {
@@ -356,6 +360,129 @@ export const sprint1Storage = {
       localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(allPosts));
     }
     return post;
+  },
+
+  getAllPosts: (): Sprint1ScheduledPost[] => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(STORAGE_KEYS.POSTS);
+      if (stored) {
+        try {
+          return JSON.parse(stored);
+        } catch {
+          return inMemoryPosts;
+        }
+      }
+    }
+    return inMemoryPosts;
+  },
+
+  updatePost: (postId: string, updates: Partial<Sprint1ScheduledPost>): Sprint1ScheduledPost | null => {
+    let allPosts: Sprint1ScheduledPost[] = inMemoryPosts;
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(STORAGE_KEYS.POSTS);
+      if (stored) {
+        try {
+          allPosts = JSON.parse(stored);
+        } catch {
+          allPosts = inMemoryPosts;
+        }
+      }
+    }
+
+    const index = allPosts.findIndex((p) => p.id === postId);
+    if (index === -1) return null;
+
+    const existing = allPosts[index];
+    const updated: Sprint1ScheduledPost = {
+      ...existing,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+
+    allPosts[index] = updated;
+    inMemoryPosts = allPosts;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(allPosts));
+    }
+    return updated;
+  },
+
+  getAttempts: (postId?: string, workspaceId?: string): SocialPublishAttempt[] => {
+    let attempts = inMemoryAttempts;
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(STORAGE_KEYS.ATTEMPTS);
+      if (stored) {
+        try {
+          attempts = JSON.parse(stored);
+        } catch {
+          attempts = inMemoryAttempts;
+        }
+      }
+    }
+
+    let filtered = attempts;
+    if (workspaceId) {
+      filtered = filtered.filter((a) => a.workspaceId === workspaceId);
+    }
+    if (postId) {
+      filtered = filtered.filter((a) => a.postId === postId);
+    }
+    // Sort descending by startedAt
+    return filtered.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+  },
+
+  addAttempt: (attempt: SocialPublishAttempt): SocialPublishAttempt => {
+    let attempts = inMemoryAttempts;
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(STORAGE_KEYS.ATTEMPTS);
+      if (stored) {
+        try {
+          attempts = JSON.parse(stored);
+        } catch {
+          attempts = inMemoryAttempts;
+        }
+      }
+    }
+
+    attempts = [attempt, ...attempts];
+    inMemoryAttempts = attempts;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_KEYS.ATTEMPTS, JSON.stringify(attempts));
+    }
+    return attempt;
+  },
+
+  updateAttempt: (
+    attemptId: string,
+    updates: Partial<SocialPublishAttempt>
+  ): SocialPublishAttempt | null => {
+    let attempts = inMemoryAttempts;
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(STORAGE_KEYS.ATTEMPTS);
+      if (stored) {
+        try {
+          attempts = JSON.parse(stored);
+        } catch {
+          attempts = inMemoryAttempts;
+        }
+      }
+    }
+
+    const index = attempts.findIndex((a) => a.id === attemptId);
+    if (index === -1) return null;
+
+    const updated = {
+      ...attempts[index],
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+
+    attempts[index] = updated;
+    inMemoryAttempts = attempts;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_KEYS.ATTEMPTS, JSON.stringify(attempts));
+    }
+    return updated;
   },
 };
 

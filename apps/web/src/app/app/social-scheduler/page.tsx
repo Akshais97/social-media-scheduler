@@ -3,14 +3,31 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { sprint1Storage } from '../../../lib/mock-storage';
-import { Sprint1ScheduledPost, Workspace } from '../../../types/scheduler';
-import { Plus, Search, Calendar, Eye, Ban, Sparkles, Building2, ExternalLink } from 'lucide-react';
+import { Sprint1ScheduledPost, Workspace, SocialSchedulerPostStatus, SocialSchedulerTargetStatus } from '../../../types/scheduler';
+import StatusBadge from '../../../components/StatusBadge';
+import { WorkerDiagnosticsPanel } from '../../../components/WorkerDiagnosticsPanel';
+import {
+  Plus,
+  Search,
+  Calendar,
+  Eye,
+  Ban,
+  Building2,
+  Play,
+  RotateCw,
+  Cpu,
+  Clock,
+  Layers,
+} from 'lucide-react';
 
 const FILTER_TABS = [
   { id: 'ALL', label: 'All' },
   { id: 'DRAFT', label: 'Draft' },
   { id: 'SCHEDULED', label: 'Scheduled' },
-  { id: 'MOCK_READY', label: 'Mock Ready' },
+  { id: 'DUE', label: 'Due' },
+  { id: 'PROCESSING', label: 'Processing' },
+  { id: 'PUBLISHED_MOCK', label: 'Published Mock' },
+  { id: 'RETRYING', label: 'Retrying' },
   { id: 'FAILED', label: 'Failed' },
   { id: 'CANCELLED', label: 'Cancelled' },
 ];
@@ -20,11 +37,42 @@ export default function SocialSchedulerHomePage() {
   const [posts, setPosts] = useState<Sprint1ScheduledPost[]>([]);
   const [activeFilter, setActiveFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [triggeringPostId, setTriggeringPostId] = useState<string | null>(null);
 
   const loadPosts = () => {
     const ws = sprint1Storage.getActiveWorkspace();
     setActiveWorkspace(ws);
-    setPosts(sprint1Storage.getPosts(ws.id, activeFilter, searchQuery));
+    const now = Date.now();
+    let allPosts = sprint1Storage.getPosts(ws.id);
+
+    // Custom filtering for Sprint 2 statuses
+    if (activeFilter === 'DUE') {
+      allPosts = allPosts.filter((p) => {
+        if (p.status === SocialSchedulerPostStatus.CANCELLED || p.status === SocialSchedulerPostStatus.DRAFT) return false;
+        const isPostDue = p.scheduledAt ? new Date(p.scheduledAt).getTime() <= now : false;
+        const hasDueTarget = p.targets.some((t) => {
+          if (t.status === SocialSchedulerTargetStatus.RETRYING) {
+            return t.nextRetryAt ? new Date(t.nextRetryAt).getTime() <= now : true;
+          }
+          return t.status === SocialSchedulerTargetStatus.SCHEDULED && isPostDue;
+        });
+        return hasDueTarget;
+      });
+    } else if (activeFilter !== 'ALL') {
+      allPosts = allPosts.filter((p) => p.status === activeFilter);
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      allPosts = allPosts.filter(
+        (p) =>
+          p.title.toLowerCase().includes(q) ||
+          p.draftContentJson?.caption?.toLowerCase().includes(q)
+      );
+    }
+
+    setPosts(allPosts);
   };
 
   useEffect(() => {
@@ -33,7 +81,7 @@ export default function SocialSchedulerHomePage() {
     const handleWsChange = (e: Event) => {
       const customEvent = e as CustomEvent<Workspace>;
       setActiveWorkspace(customEvent.detail);
-      setPosts(sprint1Storage.getPosts(customEvent.detail.id, activeFilter, searchQuery));
+      loadPosts();
     };
 
     window.addEventListener('workspace-changed', handleWsChange);
@@ -45,6 +93,45 @@ export default function SocialSchedulerHomePage() {
     loadPosts();
   };
 
+  const handleRunMockPublishForPost = async (postId: string) => {
+    setTriggeringPostId(postId);
+    try {
+      await fetch('/api/v0/social-scheduler/worker/process-due', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Worker-Secret': 'sakhaa_worker_secret_sprint2',
+        },
+        body: JSON.stringify({
+          limit: 10,
+          mockMode: 'success',
+          workspaceId: activeWorkspace?.id,
+        }),
+      });
+      loadPosts();
+    } catch (err) {
+      console.error('Failed to run mock publish:', err);
+    } finally {
+      setTriggeringPostId(null);
+    }
+  };
+
+  const getTargetSummary = (post: Sprint1ScheduledPost) => {
+    const total = post.targets.length;
+    const published = post.targets.filter(
+      (t) => t.status === SocialSchedulerTargetStatus.PUBLISHED_MOCK || t.status === SocialSchedulerTargetStatus.PUBLISHED
+    ).length;
+    const retrying = post.targets.filter((t) => t.status === SocialSchedulerTargetStatus.RETRYING).length;
+    const failed = post.targets.filter((t) => t.status === SocialSchedulerTargetStatus.FAILED).length;
+    const processing = post.targets.filter((t) => t.status === SocialSchedulerTargetStatus.PROCESSING).length;
+
+    if (published === total && total > 0) return `${total} targets published (mock)`;
+    if (processing > 0) return `${processing} processing · ${total - processing} waiting`;
+    if (retrying > 0) return `${retrying} retrying · ${published} published`;
+    if (failed > 0) return `${failed} failed · ${published} published`;
+    return `${total} platform targets scheduled`;
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header Area */}
@@ -53,15 +140,27 @@ export default function SocialSchedulerHomePage() {
           <div className="flex items-center gap-2.5">
             <h1 className="text-2xl font-bold text-white tracking-tight">Social Scheduler</h1>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#D6B46A]/10 text-[#D6B46A] border border-[#D6B46A]/20">
-              Sprint 1 MVP
+              Sprint 2 Operational
             </span>
           </div>
           <p className="text-xs text-zinc-400 mt-1 max-w-2xl">
-            Plan approved media posts for each client workspace before they move into real platform publishing.
+            Schedule approved media posts with automated worker due detection, atomic claiming, and attempt timelines.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowDiagnostics(!showDiagnostics)}
+            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono font-medium border transition-colors ${
+              showDiagnostics
+                ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
+                : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border-white/10'
+            }`}
+          >
+            <Cpu className="w-4 h-4" />
+            <span>Worker Controls</span>
+          </button>
+
           <Link
             href="/app/social-scheduler/new"
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#D6B46A] hover:bg-[#c4a259] text-zinc-950 text-xs font-semibold tracking-wide transition-all shadow-lg shadow-[#D6B46A]/20"
@@ -71,6 +170,14 @@ export default function SocialSchedulerHomePage() {
           </Link>
         </div>
       </div>
+
+      {/* Diagnostics Panel (if toggled) */}
+      {showDiagnostics && (
+        <WorkerDiagnosticsPanel
+          workspaceId={activeWorkspace?.id}
+          onExecutionComplete={loadPosts}
+        />
+      )}
 
       {/* Active Workspace Banner */}
       {activeWorkspace && (
@@ -82,7 +189,7 @@ export default function SocialSchedulerHomePage() {
             </span>
           </div>
           <div className="flex items-center gap-3 font-mono text-[11px]">
-            <span className="text-emerald-400">Bucket: {activeWorkspace.storageBucket}</span>
+            <span className="text-emerald-400">B2 Bucket: {activeWorkspace.storageBucket}</span>
             <span>•</span>
             <span className="text-[#D6B46A]">{activeWorkspace.permission}</span>
           </div>
@@ -98,12 +205,11 @@ export default function SocialSchedulerHomePage() {
             return (
               <button
                 key={tab.id}
-                type="button"
                 onClick={() => setActiveFilter(tab.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                   isActive
-                    ? 'bg-[#D6B46A]/15 text-[#D6B46A] border border-[#D6B46A]/30 font-semibold'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 border border-transparent'
+                    ? 'bg-white/10 text-white border border-white/20'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent'
                 }`}
               >
                 {tab.label}
@@ -112,131 +218,153 @@ export default function SocialSchedulerHomePage() {
           })}
         </div>
 
-        {/* Search */}
-        <div className="relative min-w-[240px]">
-          <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-zinc-500" />
+        {/* Search Input */}
+        <div className="relative min-w-[260px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
           <input
             type="text"
-            placeholder="Search posts..."
+            placeholder="Search posts or captions..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-zinc-900 border border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-[#D6B46A]"
+            className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-zinc-950 border border-white/10 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-[#D6B46A]/50 font-sans"
           />
         </div>
       </div>
 
-      {/* Posts Table / List */}
-      <div className="rounded-2xl bg-zinc-950/80 border border-white/10 overflow-hidden divide-y divide-white/5 shadow-xl">
-        {posts.length === 0 ? (
-          /* Empty State per Section 6.2 */
-          <div className="p-16 text-center max-w-md mx-auto space-y-4">
-            <div className="h-12 w-12 rounded-full bg-[#D6B46A]/10 border border-[#D6B46A]/20 flex items-center justify-center text-[#D6B46A] mx-auto">
-              <Sparkles className="h-6 w-6" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-white">Plan your first scheduled post</h3>
-              <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
-                Upload an approved image or video, prepare the caption, choose the client account, and save it as a
-                scheduled post.
-              </p>
-            </div>
-            <div className="pt-2">
-              <Link
-                href="/app/social-scheduler/new"
-                className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-[#D6B46A] hover:bg-[#c4a259] text-zinc-950 text-xs font-semibold tracking-wide shadow-lg shadow-[#D6B46A]/20"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Create Scheduled Post</span>
-              </Link>
-            </div>
+      {/* Post Table / Cards List */}
+      {posts.length === 0 ? (
+        <div className="p-12 text-center rounded-2xl bg-zinc-950/40 border border-white/5 space-y-4">
+          <div className="w-12 h-12 rounded-full bg-zinc-900 border border-white/10 flex items-center justify-center mx-auto text-zinc-500">
+            <Layers className="h-6 w-6" />
           </div>
-        ) : (
-          posts.map((post) => {
-            const hasMedia = post.mediaAssets && post.mediaAssets.length > 0;
-            const previewImage = hasMedia ? post.mediaAssets[0].previewUrl : null;
-            const isScheduled = post.status === 'SCHEDULED';
+          <div className="space-y-1 max-w-sm mx-auto">
+            <h3 className="text-sm font-semibold text-zinc-200">No posts found in this queue</h3>
+            <p className="text-xs text-zinc-500">
+              {activeFilter !== 'ALL'
+                ? `There are currently no posts matching the "${activeFilter}" filter.`
+                : 'Get started by creating your first scheduled post in this workspace.'}
+            </p>
+          </div>
+          {activeFilter === 'ALL' && (
+            <Link
+              href="/app/social-scheduler/new"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold border border-white/10 transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Create Post</span>
+            </Link>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3">
+          {posts.map((post) => {
+            const isTerminal =
+              post.status === SocialSchedulerPostStatus.CANCELLED ||
+              post.status === SocialSchedulerPostStatus.PUBLISHED_MOCK;
+            const isProcessing = post.status === SocialSchedulerPostStatus.PROCESSING;
 
             return (
               <div
                 key={post.id}
-                className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors"
+                className="p-4 rounded-xl bg-zinc-950/80 border border-white/5 hover:border-white/15 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
               >
-                <div className="flex items-start md:items-center gap-4 min-w-0">
-                  {/* Thumbnail */}
-                  <div className="relative h-14 w-14 rounded-xl bg-zinc-900 border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center">
-                    {previewImage ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={previewImage} alt="Thumbnail" className="h-full w-full object-cover" />
-                    ) : (
-                      <Calendar className="h-5 w-5 text-zinc-600" />
-                    )}
-                  </div>
+                {/* Left: Info & Thumbnail */}
+                <div className="flex items-start gap-3.5 min-w-0">
+                  {post.mediaAssets && post.mediaAssets[0] ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={post.mediaAssets[0].previewUrl}
+                      alt={post.title}
+                      className="h-14 w-14 rounded-lg object-cover bg-zinc-900 border border-white/10 flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="h-14 w-14 rounded-lg bg-zinc-900 border border-white/10 flex items-center justify-center text-zinc-600 text-[10px] font-mono flex-shrink-0">
+                      NO MEDIA
+                    </div>
+                  )}
 
-                  {/* Title & Metadata */}
                   <div className="min-w-0 space-y-1">
-                    <h3 className="text-sm font-semibold text-zinc-100 truncate max-w-xl">{post.title}</h3>
-                    <p className="text-xs text-zinc-400 truncate max-w-xl">{post.draftContentJson.caption}</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Link
+                        href={`/app/social-scheduler/${post.id}`}
+                        className="text-sm font-semibold text-zinc-100 hover:text-[#D6B46A] transition-colors truncate max-w-md block"
+                      >
+                        {post.title}
+                      </Link>
+                      <StatusBadge status={post.status} size="sm" />
+                    </div>
 
-                    <div className="flex flex-wrap items-center gap-3 text-[10px] font-mono text-zinc-500">
-                      <span>{post.scheduledAt ? new Date(post.scheduledAt).toLocaleString() : 'Unscheduled'}</span>
+                    <p className="text-xs text-zinc-400 line-clamp-1">
+                      {post.draftContentJson.caption || 'No caption entered'}
+                    </p>
+
+                    <div className="flex items-center gap-3 text-[11px] font-mono text-zinc-500 flex-wrap pt-0.5">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {post.scheduledAt
+                          ? new Date(post.scheduledAt).toLocaleString([], {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : 'Unscheduled'}
+                      </span>
                       <span>•</span>
-                      <span>{post.timezone || 'Asia/Kolkata'}</span>
-                      <span>•</span>
-                      <div className="flex items-center gap-1.5">
-                        {post.targets.map((t) => (
-                          <span
-                            key={t.id}
-                            className="bg-zinc-900 border border-white/5 px-2 py-0.5 rounded text-[9px] text-zinc-300"
-                          >
-                            {t.platform}
+                      <span className="text-zinc-400">{getTargetSummary(post)}</span>
+                      {post.lastProcessedAt && (
+                        <>
+                          <span>•</span>
+                          <span className="text-indigo-400">
+                            Worker: {new Date(post.lastProcessedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
-                        ))}
-                      </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                {/* Status & Actions */}
-                <div className="flex items-center gap-3 self-end md:self-center flex-shrink-0">
-                  <span
-                    className={`px-2.5 py-1 rounded-full text-[10px] font-mono uppercase tracking-wider border ${
-                      post.status === 'SCHEDULED'
-                        ? 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30'
-                        : post.status === 'DRAFT'
-                        ? 'bg-zinc-800 text-zinc-300 border-zinc-700'
-                        : post.status === 'CANCELLED'
-                        ? 'bg-rose-500/10 text-rose-300 border-rose-500/30'
-                        : 'bg-[#D6B46A]/10 text-[#D6B46A] border-[#D6B46A]/30'
-                    }`}
-                  >
-                    {post.status}
-                  </span>
+                {/* Right: Actions */}
+                <div className="flex items-center gap-2 flex-shrink-0 self-end md:self-center">
+                  {/* Run mock publish trigger for due posts in admin mode */}
+                  {!isTerminal && !isProcessing && (
+                    <button
+                      onClick={() => handleRunMockPublishForPost(post.id)}
+                      disabled={triggeringPostId === post.id}
+                      className="px-2.5 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-xs font-mono flex items-center gap-1 transition-colors disabled:opacity-50"
+                      title="Run mock publisher on this post"
+                    >
+                      <Play className="w-3 h-3 fill-indigo-300" />
+                      <span>{triggeringPostId === post.id ? 'Running...' : 'Process Due'}</span>
+                    </button>
+                  )}
 
                   <Link
                     href={`/app/social-scheduler/${post.id}`}
-                    className="p-2 rounded-lg text-zinc-400 hover:text-white bg-zinc-900 border border-white/10 hover:border-white/20 transition-all text-xs flex items-center gap-1"
-                    title="View details"
+                    className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 text-xs font-medium border border-white/5 flex items-center gap-1.5 transition-colors"
                   >
                     <Eye className="h-3.5 w-3.5" />
                     <span>View</span>
                   </Link>
 
-                  {isScheduled && (
-                    <button
-                      type="button"
-                      onClick={() => handleCancelPost(post.id)}
-                      className="p-2 rounded-lg text-rose-400 hover:bg-rose-500/10 border border-rose-500/20 transition-all text-xs"
-                      title="Cancel post"
-                    >
-                      <Ban className="h-3.5 w-3.5" />
-                    </button>
-                  )}
+                  {post.status !== SocialSchedulerPostStatus.CANCELLED &&
+                    post.status !== SocialSchedulerPostStatus.PUBLISHED_MOCK &&
+                    post.status !== SocialSchedulerPostStatus.PROCESSING && (
+                      <button
+                        onClick={() => handleCancelPost(post.id)}
+                        className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-medium border border-rose-500/20 flex items-center gap-1.5 transition-colors"
+                        title="Cancel post"
+                      >
+                        <Ban className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Cancel</span>
+                      </button>
+                    )}
                 </div>
               </div>
             );
-          })
-        )}
-      </div>
+          })}
+        </div>
+      )}
     </div>
   );
 }

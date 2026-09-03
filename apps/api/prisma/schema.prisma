@@ -1,6 +1,5 @@
 // Prisma Schema — Social Media Scheduler
-// Conforms strictly to docs/Sprint/Sakhaa Forge Social Scheduler — Sprint 1 Documentation.md
-// and docs/05_data_models.md
+// Conforms strictly to Sprint 1 & Sprint 2 Documentation
 
 datasource db {
   provider  = "postgresql"
@@ -13,15 +12,18 @@ generator client {
 }
 
 // ---------------------------------------------------------
-// Sprint 1 Core Social Scheduler Models (Section 18)
+// Sprint 2 Status Enums
 // ---------------------------------------------------------
 
 enum SocialSchedulerPostStatus {
   DRAFT
   SCHEDULED
-  MOCK_READY
-  CANCELLED
+  PROCESSING
+  PUBLISHED_MOCK
+  PARTIALLY_FAILED
+  RETRYING
   FAILED
+  CANCELLED
 }
 
 enum SocialSchedulerMediaStatus {
@@ -41,10 +43,28 @@ enum SocialSchedulerPlatform {
 
 enum SocialSchedulerTargetStatus {
   SELECTED
-  MOCK_READY
-  BLOCKED
+  SCHEDULED
+  DUE
+  PROCESSING
+  PUBLISHED_MOCK
+  RETRYING
+  FAILED
+  SKIPPED
   CANCELLED
 }
+
+enum SocialPublishAttemptStatus {
+  STARTED
+  SUCCEEDED
+  FAILED_RETRYABLE
+  FAILED_PERMANENT
+  TIMED_OUT
+  SKIPPED
+}
+
+// ---------------------------------------------------------
+// Core Domain Models
+// ---------------------------------------------------------
 
 model ScheduledSocialPost {
   id               String                    @id @default(uuid())
@@ -62,8 +82,14 @@ model ScheduledSocialPost {
   updatedAt        DateTime                  @updatedAt @map("updated_at")
   cancelledAt      DateTime?                 @map("cancelled_at")
 
+  // Sprint 2 timestamp tracking
+  lastProcessedAt  DateTime?                 @map("last_processed_at")
+  publishedMockAt  DateTime?                 @map("published_mock_at")
+  failedAt         DateTime?                 @map("failed_at")
+
   media            SocialPostMedia[]
   targets          SocialPublishTarget[]
+  attempts         SocialPublishAttempt[]
 
   @@index([workspaceId, status])
   @@index([workspaceId, scheduledAt])
@@ -127,18 +153,74 @@ model SocialPublishTarget {
   status            SocialSchedulerTargetStatus @default(SELECTED)
   validationJson    Json?                       @map("validation_json")
 
+  // Sprint 2 worker & retry fields
+  attemptCount      Int                         @default(0) @map("attempt_count")
+  lastAttemptAt     DateTime?                   @map("last_attempt_at")
+  nextRetryAt       DateTime?                   @map("next_retry_at")
+  lastErrorCode     String?                     @map("last_error_code")
+  lastErrorMessage  String?                     @map("last_error_message")
+  lockedAt          DateTime?                   @map("locked_at")
+  lockedBy          String?                     @map("locked_by")
+  mockExternalId    String?                     @map("mock_external_id")
+  mockExternalUrl   String?                     @map("mock_external_url")
+
   createdAt         DateTime                    @default(now()) @map("created_at")
   updatedAt         DateTime                    @updatedAt @map("updated_at")
 
   post              ScheduledSocialPost         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  attempts          SocialPublishAttempt[]
 
   @@index([workspaceId, platform])
   @@index([postId])
+  @@index([workspaceId, status])
+  @@index([nextRetryAt])
   @@map("social_publish_targets")
 }
 
+model SocialPublishAttempt {
+  id              String                     @id @default(uuid())
+  workspaceId     String                     @map("workspace_id")
+  postId          String                     @map("post_id")
+  targetId        String                     @map("target_id")
+
+  platform        SocialSchedulerPlatform
+  attemptNumber   Int                        @map("attempt_number")
+
+  status          SocialPublishAttemptStatus
+
+  workerRunId     String?                    @map("worker_run_id")
+  mockMode        String?                    @map("mock_mode")
+
+  startedAt       DateTime                   @default(now()) @map("started_at")
+  finishedAt      DateTime?                  @map("finished_at")
+
+  errorCode       String?                    @map("error_code")
+  errorMessage    String?                    @map("error_message")
+  retryable       Boolean                    @default(false)
+  nextRetryAt     DateTime?                  @map("next_retry_at")
+
+  requestJson     Json?                      @map("request_json")
+  responseJson    Json?                      @map("response_json")
+  diagnosticsJson Json?                      @map("diagnostics_json")
+
+  externalPostId  String?                    @map("external_post_id")
+  externalPostUrl String?                    @map("external_post_url")
+
+  createdAt       DateTime                   @default(now()) @map("created_at")
+  updatedAt       DateTime                   @updatedAt @map("updated_at")
+
+  post            ScheduledSocialPost        @relation(fields: [postId], references: [id], onDelete: Cascade)
+  target          SocialPublishTarget        @relation(fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, postId])
+  @@index([targetId, attemptNumber])
+  @@index([workspaceId, status])
+  @@index([nextRetryAt])
+  @@map("social_publish_attempts")
+}
+
 // ---------------------------------------------------------
-// General Core Models
+// General Models
 // ---------------------------------------------------------
 
 model User {

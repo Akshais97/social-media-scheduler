@@ -125,7 +125,7 @@ export default function DashboardPage() {
                       <span>{post.scheduledFor ? new Date(post.scheduledFor).toLocaleString() : 'Draft'}</span>
                       <span>•</span>
                       <div className="flex items-center gap-1.5">
-                        {post.publishTargets.map((target) => (
+                        {(post.publishTargets || post.targets || []).map((target: any) => (
                           <div key={target.id} className="flex items-center gap-1 text-zinc-400">
                             <PlatformIcon platform={target.platform} className="h-3.5 w-3.5" />
                             <span>{target.platform}</span>

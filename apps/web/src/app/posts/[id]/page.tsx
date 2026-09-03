@@ -167,11 +167,11 @@ export default function PostDetailPage({ params }: PostDetailPageProps) {
           {/* Publish Targets */}
           <div className="p-5 rounded-2xl bg-zinc-950/80 border border-white/10 space-y-4">
             <span className="text-xs font-mono uppercase tracking-wider text-zinc-400">
-              Publish Targets ({post.publishTargets.length})
+              Publish Targets ({(post.publishTargets || post.targets || []).length})
             </span>
 
             <div className="space-y-3">
-              {post.publishTargets.map((target) => (
+              {(post.publishTargets || post.targets || []).map((target) => (
                 <div
                   key={target.id}
                   className="p-3.5 rounded-xl bg-zinc-900/80 border border-white/5 space-y-2"

@@ -1,321 +1,468 @@
 import {
-  Post,
-  PostStatus,
-  PublishTargetStatus,
-  PublishAttemptStatus,
-  SocialAccountStatus,
-  MediaAssetStatus,
-  SocialAccount,
-  SocialPlatform,
-  MediaAsset,
-  User,
+  SocialSchedulerPostStatus,
+  SocialSchedulerMediaStatus,
+  SocialSchedulerPlatform,
+  SocialSchedulerTargetStatus,
+  Workspace,
+  Sprint1ScheduledPost,
+  Sprint1MediaAsset,
+  Sprint1PublishTarget,
+  DraftContentJson,
 } from '../types/scheduler';
 
 const STORAGE_KEYS = {
-  POSTS: 'scheduler_posts_v1',
-  AUTH: 'scheduler_auth_v1',
-  ACCOUNTS: 'scheduler_accounts_v1',
+  POSTS: 'sakhaa_scheduler_posts_sprint1',
+  WORKSPACES: 'sakhaa_scheduler_workspaces_sprint1',
+  ACTIVE_WS: 'sakhaa_scheduler_active_ws_sprint1',
+  MEDIA: 'sakhaa_scheduler_media_sprint1',
 };
 
-export const MOCK_ACCOUNTS: SocialAccount[] = [
+export const DEFAULT_WORKSPACES: Workspace[] = [
   {
-    id: 'acc_ig_1',
-    platform: 'INSTAGRAM',
-    displayName: 'sakhaa_official',
-    platformAccountId: 'ig_17841400012345678',
-    status: SocialAccountStatus.CONNECTED,
-    avatarUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&auto=format&fit=crop&q=80',
-    createdAt: '2026-08-15T10:00:00Z',
+    id: 'ws_mantri',
+    name: 'Mantri Developers',
+    brandName: 'Mantri Luxury Homes',
+    brandApproved: true,
+    permission: 'OWNER',
+    storageBucket: 'sakhaa-b2-mantri',
   },
   {
-    id: 'acc_fb_1',
-    platform: 'FACEBOOK',
-    displayName: 'Sakhaa Forge Media',
-    platformAccountId: 'fb_page_1029384756',
-    status: SocialAccountStatus.CONNECTED,
-    avatarUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=100&auto=format&fit=crop&q=80',
-    createdAt: '2026-08-15T10:30:00Z',
+    id: 'ws_sobha',
+    name: 'Sobha Realty',
+    brandName: 'Sobha Signature',
+    brandApproved: true,
+    permission: 'CLIENT_MANAGER',
+    storageBucket: 'sakhaa-b2-sobha',
   },
   {
-    id: 'acc_li_1',
-    platform: 'LINKEDIN',
-    displayName: 'Sakhaa Technologies',
-    platformAccountId: 'urn:li:organization:8937461',
-    status: SocialAccountStatus.REAUTH_REQUIRED,
-    avatarUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=100&auto=format&fit=crop&q=80',
-    createdAt: '2026-08-20T14:15:00Z',
+    id: 'ws_prestige',
+    name: 'Prestige Group',
+    brandName: 'Prestige Estates',
+    brandApproved: false,
+    permission: 'VIEWER',
+    storageBucket: 'sakhaa-b2-prestige',
   },
 ];
 
-const INITIAL_POSTS: Post[] = [
+const INITIAL_SPRINT1_POSTS: Sprint1ScheduledPost[] = [
   {
-    id: 'post_001',
-    caption: 'Forging new horizons with next-gen automated scheduling systems. Validated end-to-end with Backblaze B2 & Supabase. #TechArchitecture #SocialScheduler',
-    scheduledFor: '2026-09-04T15:00:00.000Z',
-    status: PostStatus.SCHEDULED,
-    createdAt: '2026-09-03T10:30:00.000Z',
-    updatedAt: '2026-09-03T10:30:00.000Z',
+    id: 'post_s1_001',
+    workspaceId: 'ws_mantri',
+    createdByUserId: 'usr_admin',
+    title: 'Weekend property walkthrough',
+    status: SocialSchedulerPostStatus.SCHEDULED,
+    scheduledAt: '2026-09-05T10:30:00.000Z',
+    timezone: 'Asia/Kolkata',
+    createdAt: '2026-09-02T14:00:00.000Z',
+    updatedAt: '2026-09-02T14:30:00.000Z',
+    draftContentJson: {
+      version: '1.0',
+      source: 'manual_upload',
+      postTitle: 'Weekend property walkthrough',
+      caption: 'Explore the newly unveiled sky villas at Mantri Signature Tower. Experience bespoke architecture and private terrace gardens. #MantriHomes #LuxuryLiving',
+      cta: 'Book an exclusive site visit today',
+      hashtags: ['MantriHomes', 'LuxuryLiving', 'BangaloreEstates'],
+      notes: 'Focus on Instagram and Facebook Pages for maximum regional reach.',
+      media: [
+        {
+          mediaAssetId: 'asset_mantri_01',
+          role: 'primary',
+          order: 0,
+        },
+      ],
+      platformOverrides: {},
+      createdFromStage: 'compose',
+      lastEditedAt: '2026-09-02T14:30:00.000Z',
+    },
     mediaAssets: [
       {
-        id: 'media_001',
-        postId: 'post_001',
-        b2Bucket: 'social-scheduler-media',
-        b2Key: 'social-scheduler/uploads/2026/09/post_001/forge-system.png',
-        originalFilename: 'forge-system.png',
-        mimeType: 'image/png',
-        sizeBytes: 1485200,
+        id: 'asset_mantri_01',
+        workspaceId: 'ws_mantri',
+        uploadedByUserId: 'usr_admin',
+        originalFileName: 'mantri-sky-villas.jpg',
+        safeFileName: 'mantri_sky_villas.jpg',
+        mimeType: 'image/jpeg',
+        byteSize: 2450000,
+        bucket: 'sakhaa-b2-mantri',
+        objectKey: 'workspaces/ws_mantri/social-scheduler/2026/09/asset_mantri_01/mantri_sky_villas.jpg',
         width: 1200,
-        height: 630,
-        status: MediaAssetStatus.UPLOADED,
-        previewUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80',
-        createdAt: '2026-09-03T10:28:00.000Z',
+        height: 800,
+        status: SocialSchedulerMediaStatus.UPLOADED,
+        previewUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&auto=format&fit=crop&q=80',
+        createdAt: '2026-09-02T13:50:00.000Z',
+        updatedAt: '2026-09-02T13:52:00.000Z',
       },
     ],
-    publishTargets: [
+    targets: [
       {
-        id: 'target_001',
-        postId: 'post_001',
-        socialAccountId: 'acc_ig_1',
-        platform: 'INSTAGRAM',
-        status: PublishTargetStatus.SCHEDULED,
-        scheduledFor: '2026-09-04T15:00:00.000Z',
-        idempotencyKey: 'idemp_post_001_acc_ig_1',
-        retryCount: 0,
-        createdAt: '2026-09-03T10:30:00.000Z',
-        updatedAt: '2026-09-03T10:30:00.000Z',
-        socialAccount: MOCK_ACCOUNTS[0],
-        publishAttempts: [],
+        id: 'tgt_001',
+        postId: 'post_s1_001',
+        workspaceId: 'ws_mantri',
+        platform: SocialSchedulerPlatform.INSTAGRAM,
+        mockAccountName: 'Instagram Business · Mantri Official',
+        status: SocialSchedulerTargetStatus.MOCK_READY,
+        createdAt: '2026-09-02T14:15:00.000Z',
+        updatedAt: '2026-09-02T14:15:00.000Z',
       },
       {
-        id: 'target_002',
-        postId: 'post_001',
-        socialAccountId: 'acc_fb_1',
-        platform: 'FACEBOOK',
-        status: PublishTargetStatus.SCHEDULED,
-        scheduledFor: '2026-09-04T15:00:00.000Z',
-        idempotencyKey: 'idemp_post_001_acc_fb_1',
-        retryCount: 0,
-        createdAt: '2026-09-03T10:30:00.000Z',
-        updatedAt: '2026-09-03T10:30:00.000Z',
-        socialAccount: MOCK_ACCOUNTS[1],
-        publishAttempts: [],
+        id: 'tgt_002',
+        postId: 'post_s1_001',
+        workspaceId: 'ws_mantri',
+        platform: SocialSchedulerPlatform.FACEBOOK,
+        mockAccountName: 'Facebook Page · Mantri Developers',
+        status: SocialSchedulerTargetStatus.MOCK_READY,
+        createdAt: '2026-09-02T14:15:00.000Z',
+        updatedAt: '2026-09-02T14:15:00.000Z',
       },
     ],
+    publishTargets: [],
   },
   {
-    id: 'post_002',
-    caption: 'Excited to announce our standalone modular scheduler architecture! Reusable core designed for enterprise integration.',
-    scheduledFor: '2026-09-02T18:00:00.000Z',
-    status: PostStatus.PUBLISHED,
-    createdAt: '2026-09-02T12:00:00.000Z',
-    updatedAt: '2026-09-02T18:00:25.000Z',
+    id: 'post_s1_002',
+    workspaceId: 'ws_mantri',
+    createdByUserId: 'usr_admin',
+    title: 'Architectural Vision: Sustainable Luxury',
+    status: SocialSchedulerPostStatus.DRAFT,
+    scheduledAt: undefined,
+    timezone: 'Asia/Kolkata',
+    createdAt: '2026-09-03T09:15:00.000Z',
+    updatedAt: '2026-09-03T09:15:00.000Z',
+    draftContentJson: {
+      version: '1.0',
+      source: 'manual_upload',
+      postTitle: 'Architectural Vision: Sustainable Luxury',
+      caption: 'Every curve, courtyard, and solar facade is engineered with ecological harmony in mind. Discover how our LEED-platinum designs redefine living.',
+      cta: 'Read our architectural whitepaper',
+      hashtags: ['SustainableArchitecture', 'GreenBuilding'],
+      media: [
+        {
+          mediaAssetId: 'asset_mantri_02',
+          role: 'primary',
+          order: 0,
+        },
+      ],
+      platformOverrides: {},
+      createdFromStage: 'compose',
+      lastEditedAt: '2026-09-03T09:15:00.000Z',
+    },
     mediaAssets: [
       {
-        id: 'media_002',
-        postId: 'post_002',
-        b2Bucket: 'social-scheduler-media',
-        b2Key: 'social-scheduler/uploads/2026/09/post_002/architecture.jpg',
-        originalFilename: 'architecture.jpg',
+        id: 'asset_mantri_02',
+        workspaceId: 'ws_mantri',
+        uploadedByUserId: 'usr_admin',
+        originalFileName: 'mantri-green-facade.jpg',
+        safeFileName: 'mantri_green_facade.jpg',
         mimeType: 'image/jpeg',
-        sizeBytes: 2451000,
+        byteSize: 1890000,
+        bucket: 'sakhaa-b2-mantri',
+        objectKey: 'workspaces/ws_mantri/social-scheduler/2026/09/asset_mantri_02/mantri_green_facade.jpg',
         width: 1080,
         height: 1080,
-        status: MediaAssetStatus.UPLOADED,
-        previewUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=800&auto=format&fit=crop&q=80',
-        createdAt: '2026-09-02T11:58:00.000Z',
+        status: SocialSchedulerMediaStatus.UPLOADED,
+        previewUrl: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1200&auto=format&fit=crop&q=80',
+        createdAt: '2026-09-03T09:05:00.000Z',
+        updatedAt: '2026-09-03T09:07:00.000Z',
       },
     ],
-    publishTargets: [
-      {
-        id: 'target_003',
-        postId: 'post_002',
-        socialAccountId: 'acc_ig_1',
-        platform: 'INSTAGRAM',
-        status: PublishTargetStatus.PUBLISHED,
-        scheduledFor: '2026-09-02T18:00:00.000Z',
-        publishedAt: '2026-09-02T18:00:25.000Z',
-        platformPostId: '17992837461523',
-        platformPostUrl: 'https://instagram.com/p/C1234567890',
-        idempotencyKey: 'idemp_post_002_acc_ig_1',
-        retryCount: 0,
-        createdAt: '2026-09-02T12:00:00.000Z',
-        updatedAt: '2026-09-02T18:00:25.000Z',
-        socialAccount: MOCK_ACCOUNTS[0],
-        publishAttempts: [
-          {
-            id: 'att_001',
-            publishTargetId: 'target_003',
-            attemptNumber: 1,
-            status: PublishAttemptStatus.SUCCESS,
-            startedAt: '2026-09-02T18:00:02.000Z',
-            finishedAt: '2026-09-02T18:00:25.000Z',
-            createdAt: '2026-09-02T18:00:02.000Z',
-          },
-        ],
-      },
-    ],
+    targets: [],
+    publishTargets: [],
   },
   {
-    id: 'post_003',
-    caption: 'Scheduled maintenance update: Enhancing pipeline concurrency and worker claim atomicity.',
-    scheduledFor: '2026-09-01T09:00:00.000Z',
-    status: PostStatus.FAILED,
-    createdAt: '2026-08-31T20:00:00.000Z',
-    updatedAt: '2026-09-01T09:15:30.000Z',
-    mediaAssets: [
+    id: 'post_s1_003',
+    workspaceId: 'ws_sobha',
+    createdByUserId: 'usr_admin',
+    title: 'Sobha Creek Vistas Construction Milestone',
+    status: SocialSchedulerPostStatus.SCHEDULED,
+    scheduledAt: '2026-09-06T12:00:00.000Z',
+    timezone: 'Asia/Kolkata',
+    createdAt: '2026-09-02T16:00:00.000Z',
+    updatedAt: '2026-09-02T16:45:00.000Z',
+    draftContentJson: {
+      version: '1.0',
+      source: 'manual_upload',
+      postTitle: 'Sobha Creek Vistas Construction Milestone',
+      caption: 'Ahead of schedule: Level 42 casting completed at Sobha Creek Vistas. Precision German engineering meeting uncompromising elegance.',
+      cta: 'Request construction progress dossier',
+      hashtags: ['SobhaRealty', 'DubaiRealEstate'],
+      media: [],
+      platformOverrides: {},
+      createdFromStage: 'schedule',
+      lastEditedAt: '2026-09-02T16:45:00.000Z',
+    },
+    mediaAssets: [],
+    targets: [
       {
-        id: 'media_003',
-        postId: 'post_003',
-        b2Bucket: 'social-scheduler-media',
-        b2Key: 'social-scheduler/uploads/2026/08/post_003/maintenance.jpg',
-        originalFilename: 'maintenance.jpg',
-        mimeType: 'image/jpeg',
-        sizeBytes: 890400,
-        status: MediaAssetStatus.UPLOADED,
-        previewUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=800&auto=format&fit=crop&q=80',
-        createdAt: '2026-08-31T19:55:00.000Z',
+        id: 'tgt_003',
+        postId: 'post_s1_003',
+        workspaceId: 'ws_sobha',
+        platform: SocialSchedulerPlatform.PINTEREST,
+        mockAccountName: 'Pinterest Business · Sobha Showcase',
+        status: SocialSchedulerTargetStatus.MOCK_READY,
+        createdAt: '2026-09-02T16:30:00.000Z',
+        updatedAt: '2026-09-02T16:30:00.000Z',
       },
     ],
-    publishTargets: [
-      {
-        id: 'target_004',
-        postId: 'post_003',
-        socialAccountId: 'acc_li_1',
-        platform: 'LINKEDIN',
-        status: PublishTargetStatus.FAILED,
-        scheduledFor: '2026-09-01T09:00:00.000Z',
-        idempotencyKey: 'idemp_post_003_acc_li_1',
-        lastErrorCode: 'TOKEN_EXPIRED',
-        lastErrorMessage: 'The LinkedIn OAuth access token has expired. User must reconnect account.',
-        retryCount: 3,
-        createdAt: '2026-08-31T20:00:00.000Z',
-        updatedAt: '2026-09-01T09:15:30.000Z',
-        socialAccount: MOCK_ACCOUNTS[2],
-        publishAttempts: [
-          {
-            id: 'att_002',
-            publishTargetId: 'target_004',
-            attemptNumber: 1,
-            status: PublishAttemptStatus.FAILED,
-            errorCode: 'TOKEN_EXPIRED',
-            errorMessage: 'Token expired',
-            startedAt: '2026-09-01T09:00:05.000Z',
-            finishedAt: '2026-09-01T09:00:07.000Z',
-            createdAt: '2026-09-01T09:00:05.000Z',
-          },
-        ],
-      },
-    ],
+    publishTargets: [],
   },
 ];
 
-export const mockStorage = {
-  getPosts: (): Post[] => {
-    if (typeof window === 'undefined') return INITIAL_POSTS;
-    const stored = localStorage.getItem(STORAGE_KEYS.POSTS);
+let inMemoryPosts: Sprint1ScheduledPost[] = [...INITIAL_SPRINT1_POSTS];
+
+export const sprint1Storage = {
+  getWorkspaces: (): Workspace[] => {
+    if (typeof window === 'undefined') return DEFAULT_WORKSPACES;
+    const stored = localStorage.getItem(STORAGE_KEYS.WORKSPACES);
     if (!stored) {
-      localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(INITIAL_POSTS));
-      return INITIAL_POSTS;
+      localStorage.setItem(STORAGE_KEYS.WORKSPACES, JSON.stringify(DEFAULT_WORKSPACES));
+      return DEFAULT_WORKSPACES;
     }
     try {
       return JSON.parse(stored);
     } catch {
-      return INITIAL_POSTS;
+      return DEFAULT_WORKSPACES;
     }
   },
 
-  getPostById: (id: string): Post | undefined => {
-    const posts = mockStorage.getPosts();
-    return posts.find((p) => p.id === id);
+  getActiveWorkspace: (): Workspace => {
+    const workspaces = sprint1Storage.getWorkspaces();
+    if (typeof window === 'undefined') return workspaces[0];
+    const activeId = localStorage.getItem(STORAGE_KEYS.ACTIVE_WS);
+    const found = workspaces.find((w) => w.id === activeId);
+    if (found) return found;
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_WS, workspaces[0].id);
+    return workspaces[0];
   },
 
-  createPost: (params: {
-    caption: string;
-    scheduledFor?: string;
-    mediaAssets: MediaAsset[];
-    targetAccounts: { accountId: string; platform: SocialPlatform }[];
-  }): Post => {
-    const posts = mockStorage.getPosts();
-    const newId = `post_${Date.now()}`;
-    const status = params.scheduledFor ? PostStatus.SCHEDULED : PostStatus.DRAFT;
+  setActiveWorkspace: (workspaceId: string): Workspace => {
+    const workspaces = sprint1Storage.getWorkspaces();
+    const found = workspaces.find((w) => w.id === workspaceId) || workspaces[0];
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_WS, found.id);
+    }
+    return found;
+  },
 
-    const targets = params.targetAccounts.map((t, idx) => {
-      const acc = MOCK_ACCOUNTS.find((a) => a.id === t.accountId);
-      return {
-        id: `target_${Date.now()}_${idx}`,
-        postId: newId,
-        socialAccountId: t.accountId,
-        platform: t.platform,
-        status: params.scheduledFor ? PublishTargetStatus.SCHEDULED : PublishTargetStatus.PENDING,
-        scheduledFor: params.scheduledFor || new Date().toISOString(),
-        idempotencyKey: `idemp_${newId}_${t.accountId}`,
-        retryCount: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        socialAccount: acc,
-        publishAttempts: [],
-      };
-    });
+  getPosts: (workspaceId?: string, statusFilter?: string, search?: string): Sprint1ScheduledPost[] => {
+    const ws = workspaceId || sprint1Storage.getActiveWorkspace().id;
+    let posts: Sprint1ScheduledPost[] = inMemoryPosts;
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(STORAGE_KEYS.POSTS);
+      if (!stored) {
+        localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(INITIAL_SPRINT1_POSTS));
+        posts = INITIAL_SPRINT1_POSTS;
+      } else {
+        try {
+          posts = JSON.parse(stored);
+        } catch {
+          posts = INITIAL_SPRINT1_POSTS;
+        }
+      }
+    }
 
-    const newPost: Post = {
+    return posts
+      .filter((p) => p.workspaceId === ws)
+      .filter((p) => {
+        if (!statusFilter || statusFilter === 'ALL') return true;
+        return p.status === statusFilter;
+      })
+      .filter((p) => {
+        if (!search || !search.trim()) return true;
+        const q = search.toLowerCase();
+        return (
+          p.title.toLowerCase().includes(q) ||
+          p.draftContentJson.caption.toLowerCase().includes(q)
+        );
+      });
+  },
+
+  getPostById: (postId: string): Sprint1ScheduledPost | undefined => {
+    let posts: Sprint1ScheduledPost[] = inMemoryPosts;
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(STORAGE_KEYS.POSTS);
+      if (stored) {
+        try {
+          posts = JSON.parse(stored);
+        } catch {
+          posts = inMemoryPosts;
+        }
+      }
+    }
+    return posts.find((p) => p.id === postId);
+  },
+
+  createDraftPost: (params: {
+    workspaceId: string;
+    title: string;
+    draftContentJson: DraftContentJson;
+    mediaAssets?: Sprint1MediaAsset[];
+    targets?: Sprint1PublishTarget[];
+    scheduledAt?: string;
+    timezone?: string;
+    status?: SocialSchedulerPostStatus;
+  }): Sprint1ScheduledPost => {
+    const newId = `post_s1_${Date.now()}`;
+
+    const newPost: Sprint1ScheduledPost = {
       id: newId,
-      caption: params.caption,
-      scheduledFor: params.scheduledFor,
-      status,
+      workspaceId: params.workspaceId,
+      createdByUserId: 'usr_admin',
+      title: params.title,
+      status: params.status || (params.scheduledAt ? SocialSchedulerPostStatus.SCHEDULED : SocialSchedulerPostStatus.DRAFT),
+      scheduledAt: params.scheduledAt,
+      timezone: params.timezone || 'Asia/Kolkata',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      mediaAssets: params.mediaAssets.map((m) => ({ ...m, postId: newId })),
-      publishTargets: targets,
+      draftContentJson: params.draftContentJson,
+      mediaAssets: params.mediaAssets || [],
+      targets: params.targets || [],
+      publishTargets: params.targets || [],
     };
 
-    const updated = [newPost, ...posts];
+    inMemoryPosts = [newPost, ...inMemoryPosts];
+
     if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(updated));
+      localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(inMemoryPosts));
     }
+
     return newPost;
   },
 
-  cancelPost: (id: string): Post | null => {
-    const posts = mockStorage.getPosts();
-    const post = posts.find((p) => p.id === id);
+  cancelPost: (postId: string): Sprint1ScheduledPost | null => {
+    let allPosts: Sprint1ScheduledPost[] = inMemoryPosts;
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(STORAGE_KEYS.POSTS);
+      if (stored) {
+        try {
+          allPosts = JSON.parse(stored);
+        } catch {
+          allPosts = inMemoryPosts;
+        }
+      }
+    }
+
+    const post = allPosts.find((p) => p.id === postId);
     if (!post) return null;
 
-    post.status = PostStatus.CANCELLED;
+    post.status = SocialSchedulerPostStatus.CANCELLED;
     post.cancelledAt = new Date().toISOString();
     post.updatedAt = new Date().toISOString();
-    post.publishTargets.forEach((t) => {
-      if (t.status === PublishTargetStatus.SCHEDULED || t.status === PublishTargetStatus.PENDING) {
-        t.status = PublishTargetStatus.CANCELLED;
-      }
+    post.targets.forEach((t) => {
+      t.status = SocialSchedulerTargetStatus.CANCELLED;
+      t.updatedAt = new Date().toISOString();
     });
 
+    inMemoryPosts = allPosts;
     if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(posts));
+      localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(allPosts));
     }
     return post;
   },
+};
 
-  getCurrentUser: (): User | null => {
-    if (typeof window === 'undefined') return { id: 'usr_admin', username: 'admin', createdAt: '2026-09-01T00:00:00Z' };
-    const auth = localStorage.getItem(STORAGE_KEYS.AUTH);
-    if (!auth) return { id: 'usr_admin', username: 'admin', createdAt: '2026-09-01T00:00:00Z' }; // auto-login default for MVP convenience
-    return JSON.parse(auth);
+export const MOCK_ACCOUNTS = [
+  {
+    id: 'acc_ig_01',
+    platform: SocialSchedulerPlatform.INSTAGRAM,
+    displayName: 'Mantri Official (Instagram)',
+    platformAccountId: 'ig_178414053092',
+    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    status: 'CONNECTED',
+    createdAt: '2026-09-01T10:00:00.000Z',
+    updatedAt: '2026-09-01T10:00:00.000Z',
   },
+  {
+    id: 'acc_fb_01',
+    platform: SocialSchedulerPlatform.FACEBOOK,
+    displayName: 'Mantri Developers (Facebook Page)',
+    platformAccountId: 'fb_page_10928374',
+    avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
+    status: 'CONNECTED',
+    createdAt: '2026-09-01T10:05:00.000Z',
+    updatedAt: '2026-09-01T10:05:00.000Z',
+  },
+  {
+    id: 'acc_li_01',
+    platform: SocialSchedulerPlatform.LINKEDIN,
+    displayName: 'Mantri Estates Corporate (LinkedIn)',
+    platformAccountId: 'urn:li:organization:987213',
+    avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150&auto=format&fit=crop&q=80',
+    status: 'REAUTH_REQUIRED',
+    createdAt: '2026-09-01T10:10:00.000Z',
+    updatedAt: '2026-09-01T10:10:00.000Z',
+  },
+];
 
-  login: (username: string, _password: string): boolean => {
-    if (username.trim()) {
-      const user: User = { id: 'usr_admin', username, createdAt: new Date().toISOString() };
+// Backward-compatible alias
+export const mockStorage = {
+  ...sprint1Storage,
+  getPosts: (statusFilter?: string, search?: string) => {
+    const list = sprint1Storage.getPosts(undefined, statusFilter, search);
+    return list.map((p) => ({
+      ...p,
+      caption: p.draftContentJson?.caption || '',
+      scheduledFor: p.scheduledAt,
+      publishTargets: p.targets.map((t) => ({
+        ...t,
+        idempotencyKey: `idem_${t.id}`,
+        retryCount: 0,
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt,
+      })),
+    }));
+  },
+  getPostById: (postId: string) => {
+    const p = sprint1Storage.getPostById(postId);
+    if (!p) return undefined;
+    return {
+      ...p,
+      caption: p.draftContentJson?.caption || '',
+      scheduledFor: p.scheduledAt,
+      publishTargets: p.targets.map((t) => ({
+        ...t,
+        idempotencyKey: `idem_${t.id}`,
+        retryCount: 0,
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt,
+      })),
+    };
+  },
+  createPost: (params: any) => {
+    const draftContentJson: DraftContentJson = {
+      version: '1.0',
+      source: 'manual_upload',
+      postTitle: params.title || 'Created Post',
+      caption: params.caption || '',
+      hashtags: [],
+      media: params.mediaAssets?.map((m: any, idx: number) => ({
+        mediaAssetId: m.id,
+        role: 'primary' as const,
+        order: idx,
+      })) || [],
+      platformOverrides: {},
+      createdFromStage: 'compose',
+      lastEditedAt: new Date().toISOString(),
+    };
+
+    return sprint1Storage.createDraftPost({
+      workspaceId: 'ws_mantri',
+      title: params.title || 'Created Post',
+      draftContentJson,
+      mediaAssets: params.mediaAssets,
+      scheduledAt: params.scheduledFor,
+      status: params.scheduledFor ? SocialSchedulerPostStatus.SCHEDULED : SocialSchedulerPostStatus.DRAFT,
+    });
+  },
+  login: (username: string, password: string): boolean => {
+    if (username === 'admin' && password === 'password') {
       if (typeof window !== 'undefined') {
-        localStorage.setItem(STORAGE_KEYS.AUTH, JSON.stringify(user));
+        localStorage.setItem('sakhaa_auth_token', 'mock_jwt_token_123');
       }
       return true;
     }
     return false;
   },
-
-  logout: (): void => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(STORAGE_KEYS.AUTH);
-    }
+  isAuthenticated: (): boolean => {
+    if (typeof window === 'undefined') return true;
+    return !!localStorage.getItem('sakhaa_auth_token');
   },
 };

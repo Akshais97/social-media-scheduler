@@ -1,126 +1,185 @@
-// Social Media Scheduler MVP — Core Types and Enums
-// Conforms strictly to docs/05_data_models.md and docs/10_status_enums_and_error_states.md
+// Social Media Scheduler — Core Domain Types & Enums
+// Conforms strictly to docs/Sprint/Sakhaa Forge Social Scheduler — Sprint 1 Documentation.md
+// and docs/05_data_models.md
 
-export enum PostStatus {
+export enum SocialSchedulerPostStatus {
   DRAFT = 'DRAFT',
   SCHEDULED = 'SCHEDULED',
+  MOCK_READY = 'MOCK_READY',
+  CANCELLED = 'CANCELLED',
+  FAILED = 'FAILED',
   PROCESSING = 'PROCESSING',
   PUBLISHED = 'PUBLISHED',
-  PARTIALLY_PUBLISHED = 'PARTIALLY_PUBLISHED',
-  FAILED = 'FAILED',
-  CANCELLED = 'CANCELLED',
 }
 
-export enum PublishTargetStatus {
-  PENDING = 'PENDING',
+export enum SocialSchedulerMediaStatus {
+  INITIATED = 'INITIATED',
+  UPLOADING = 'UPLOADING',
+  UPLOADED = 'UPLOADED',
+  FAILED = 'FAILED',
+}
+
+export enum SocialSchedulerPlatform {
+  FACEBOOK = 'FACEBOOK',
+  INSTAGRAM = 'INSTAGRAM',
+  PINTEREST = 'PINTEREST',
+  YOUTUBE = 'YOUTUBE',
+  X = 'X',
+  TIKTOK = 'TIKTOK',
+  LINKEDIN = 'LINKEDIN',
+}
+
+export enum SocialSchedulerTargetStatus {
+  SELECTED = 'SELECTED',
+  MOCK_READY = 'MOCK_READY',
+  BLOCKED = 'BLOCKED',
+  CANCELLED = 'CANCELLED',
   SCHEDULED = 'SCHEDULED',
   PROCESSING = 'PROCESSING',
   PUBLISHED = 'PUBLISHED',
   FAILED = 'FAILED',
   RETRYING = 'RETRYING',
   REAUTH_REQUIRED = 'REAUTH_REQUIRED',
-  CANCELLED = 'CANCELLED',
+  PENDING = 'PENDING',
 }
 
-export enum PublishAttemptStatus {
-  STARTED = 'STARTED',
-  SUCCESS = 'SUCCESS',
-  FAILED = 'FAILED',
-  SKIPPED = 'SKIPPED',
-}
+// Backward-compatible type aliases
+export const PostStatus = SocialSchedulerPostStatus;
+export type PostStatus = SocialSchedulerPostStatus;
+
+export const MediaAssetStatus = SocialSchedulerMediaStatus;
+export type MediaAssetStatus = SocialSchedulerMediaStatus;
+
+export const SocialPlatform = SocialSchedulerPlatform;
+export type SocialPlatform = SocialSchedulerPlatform;
+
+export const PublishTargetStatus = SocialSchedulerTargetStatus;
+export type PublishTargetStatus = SocialSchedulerTargetStatus;
 
 export enum SocialAccountStatus {
   CONNECTED = 'CONNECTED',
-  EXPIRED = 'EXPIRED',
   REAUTH_REQUIRED = 'REAUTH_REQUIRED',
-  REVOKED = 'REVOKED',
+  EXPIRED = 'EXPIRED',
   ERROR = 'ERROR',
 }
 
-export enum MediaAssetStatus {
-  UPLOADING = 'UPLOADING',
-  UPLOADED = 'UPLOADED',
-  FAILED = 'FAILED',
-  DELETED = 'DELETED',
+export interface Workspace {
+  id: string;
+  name: string;
+  brandName: string;
+  brandApproved: boolean;
+  permission: 'OWNER' | 'ADMIN' | 'CLIENT_MANAGER' | 'VIEWER';
+  storageBucket: string;
 }
 
-export type SocialPlatform = 'INSTAGRAM' | 'FACEBOOK' | 'LINKEDIN' | 'TIKTOK';
-
-export interface User {
-  id: string;
-  username: string;
-  createdAt: string;
+export interface DraftComposerMediaItem {
+  mediaAssetId: string;
+  role: 'primary' | 'secondary';
+  order: number;
 }
 
-export interface SocialAccount {
-  id: string;
-  platform: SocialPlatform;
-  displayName: string;
-  platformAccountId: string;
-  status: SocialAccountStatus;
-  avatarUrl?: string;
-  createdAt: string;
+export interface DraftContentJson {
+  version: string;
+  source: 'manual_upload';
+  postTitle: string;
+  caption: string;
+  cta?: string;
+  hashtags: string[];
+  notes?: string;
+  campaign?: {
+    name?: string | null;
+    type?: string | null;
+  };
+  media: DraftComposerMediaItem[];
+  platformOverrides: Record<string, unknown>;
+  createdFromStage: string;
+  lastEditedAt: string;
 }
 
-export interface MediaAsset {
+export interface Sprint1MediaAsset {
   id: string;
-  postId?: string;
-  b2Bucket: string;
-  b2Key: string;
-  originalFilename: string;
+  workspaceId: string;
+  uploadedByUserId: string;
+  originalFileName: string;
+  safeFileName: string;
   mimeType: string;
-  sizeBytes: number;
+  byteSize: number;
+  bucket: string;
+  objectKey: string;
+  sha256?: string;
   width?: number;
   height?: number;
   durationMs?: number;
-  status: MediaAssetStatus;
+  status: SocialSchedulerMediaStatus;
   previewUrl: string;
   createdAt: string;
-  updatedAt?: string;
+  updatedAt: string;
+  // Aliases for compatibility
+  originalFilename?: string;
+  b2Bucket?: string;
+  b2Key?: string;
+  sizeBytes?: number;
 }
 
-export interface PublishAttempt {
-  id: string;
-  publishTargetId: string;
-  attemptNumber: number;
-  status: PublishAttemptStatus;
-  errorCode?: string;
-  errorMessage?: string;
-  startedAt: string;
-  finishedAt?: string;
-  createdAt: string;
-}
+export type MediaAsset = Sprint1MediaAsset;
 
-export interface PublishTarget {
+export interface Sprint1PublishTarget {
   id: string;
   postId: string;
-  socialAccountId: string;
-  platform: SocialPlatform;
-  status: PublishTargetStatus;
-  scheduledFor: string;
-  processingStartedAt?: string;
-  publishedAt?: string;
-  platformPostId?: string;
-  platformPostUrl?: string;
-  idempotencyKey: string;
-  lastErrorCode?: string;
-  lastErrorMessage?: string;
-  retryCount: number;
-  nextRetryAt?: string;
+  workspaceId: string;
+  platform: SocialSchedulerPlatform;
+  mockAccountName: string;
+  externalAccountId?: string;
+  status: SocialSchedulerTargetStatus;
+  validationJson?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
-  socialAccount?: SocialAccount;
-  publishAttempts?: PublishAttempt[];
+  // Compatibility fields
+  socialAccountId?: string;
+  scheduledFor?: string;
+  idempotencyKey?: string;
+  retryCount?: number;
+  lastErrorMessage?: string;
+  lastErrorCode?: string;
+  platformPostUrl?: string;
+  socialAccount?: {
+    id: string;
+    platform: SocialSchedulerPlatform;
+    displayName: string;
+  };
 }
 
-export interface Post {
+export type PublishTarget = Sprint1PublishTarget;
+
+export interface Sprint1ScheduledPost {
   id: string;
-  caption: string;
-  scheduledFor?: string;
-  status: PostStatus;
+  workspaceId: string;
+  createdByUserId: string;
+  title: string;
+  status: SocialSchedulerPostStatus;
+  draftContentJson: DraftContentJson;
+  scheduledAt?: string;
+  timezone?: string;
   createdAt: string;
   updatedAt: string;
   cancelledAt?: string;
-  mediaAssets: MediaAsset[];
-  publishTargets: PublishTarget[];
+  mediaAssets: Sprint1MediaAsset[];
+  targets: Sprint1PublishTarget[];
+  // Compatibility fields
+  caption?: string;
+  scheduledFor?: string;
+  publishTargets: Sprint1PublishTarget[];
+}
+
+export type Post = Sprint1ScheduledPost;
+
+export interface SocialAccount {
+  id: string;
+  platform: SocialSchedulerPlatform;
+  displayName: string;
+  platformAccountId: string;
+  avatarUrl?: string;
+  status: SocialAccountStatus | string;
+  createdAt: string;
+  updatedAt: string;
 }

@@ -1,5 +1,6 @@
-// Prisma Schema — Social Media Scheduler MVP
-// Conforms to docs/05_data_models.md and docs/10_status_enums_and_error_states.md
+// Prisma Schema — Social Media Scheduler
+// Conforms strictly to docs/Sprint/Sakhaa Forge Social Scheduler — Sprint 1 Documentation.md
+// and docs/05_data_models.md
 
 datasource db {
   provider  = "postgresql"
@@ -10,6 +11,135 @@ datasource db {
 generator client {
   provider = "prisma-client-js"
 }
+
+// ---------------------------------------------------------
+// Sprint 1 Core Social Scheduler Models (Section 18)
+// ---------------------------------------------------------
+
+enum SocialSchedulerPostStatus {
+  DRAFT
+  SCHEDULED
+  MOCK_READY
+  CANCELLED
+  FAILED
+}
+
+enum SocialSchedulerMediaStatus {
+  INITIATED
+  UPLOADING
+  UPLOADED
+  FAILED
+}
+
+enum SocialSchedulerPlatform {
+  FACEBOOK
+  INSTAGRAM
+  PINTEREST
+  YOUTUBE
+  X
+}
+
+enum SocialSchedulerTargetStatus {
+  SELECTED
+  MOCK_READY
+  BLOCKED
+  CANCELLED
+}
+
+model ScheduledSocialPost {
+  id               String                    @id @default(uuid())
+  workspaceId      String                    @map("workspace_id")
+  createdByUserId  String                    @map("created_by_user_id")
+
+  title            String
+  status           SocialSchedulerPostStatus @default(DRAFT)
+
+  draftContentJson Json                      @map("draft_content_json")
+  scheduledAt      DateTime?                 @map("scheduled_at")
+  timezone         String?
+
+  createdAt        DateTime                  @default(now()) @map("created_at")
+  updatedAt        DateTime                  @updatedAt @map("updated_at")
+  cancelledAt      DateTime?                 @map("cancelled_at")
+
+  media            SocialPostMedia[]
+  targets          SocialPublishTarget[]
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, scheduledAt])
+  @@map("scheduled_social_posts")
+}
+
+model SocialMediaAsset {
+  id               String                     @id @default(uuid())
+  workspaceId      String                     @map("workspace_id")
+  uploadedByUserId String                     @map("uploaded_by_user_id")
+
+  originalFileName String                     @map("original_file_name")
+  safeFileName     String                     @map("safe_file_name")
+  mimeType         String                     @map("mime_type")
+  byteSize         BigInt                     @map("byte_size")
+  bucket           String
+  objectKey        String                     @map("object_key")
+
+  sha256           String?
+  width            Int?
+  height           Int?
+  durationMs       Int?                       @map("duration_ms")
+
+  status           SocialSchedulerMediaStatus @default(INITIATED)
+  metadataJson     Json?                      @map("metadata_json")
+
+  createdAt        DateTime                   @default(now()) @map("created_at")
+  updatedAt        DateTime                   @updatedAt @map("updated_at")
+
+  posts            SocialPostMedia[]
+
+  @@index([workspaceId])
+  @@index([workspaceId, status])
+  @@map("social_media_assets")
+}
+
+model SocialPostMedia {
+  id           String              @id @default(uuid())
+  postId       String              @map("post_id")
+  mediaAssetId String              @map("media_asset_id")
+  order        Int                 @default(0)
+  role         String              @default("primary")
+
+  post         ScheduledSocialPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  mediaAsset   SocialMediaAsset    @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, mediaAssetId])
+  @@index([postId])
+  @@map("social_post_media")
+}
+
+model SocialPublishTarget {
+  id                String                      @id @default(uuid())
+  postId            String                      @map("post_id")
+  workspaceId       String                      @map("workspace_id")
+
+  platform          SocialSchedulerPlatform
+  mockAccountName   String?                     @map("mock_account_name")
+  externalAccountId String?                     @map("external_account_id")
+
+  status            SocialSchedulerTargetStatus @default(SELECTED)
+  validationJson    Json?                       @map("validation_json")
+
+  createdAt         DateTime                    @default(now()) @map("created_at")
+  updatedAt         DateTime                    @updatedAt @map("updated_at")
+
+  post              ScheduledSocialPost         @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, platform])
+  @@index([postId])
+  @@map("social_publish_targets")
+}
+
+// ---------------------------------------------------------
+// General Core Models
+// ---------------------------------------------------------
 
 model User {
   id           String   @id @default(cuid())
@@ -22,110 +152,20 @@ model User {
 }
 
 model SocialAccount {
-  id                    String          @id @default(cuid())
-  ownerId               String?         @map("owner_id")
-  workspaceId           String?         @map("workspace_id")
-  platform              String          // INSTAGRAM, FACEBOOK, LINKEDIN, TIKTOK
-  displayName           String?         @map("display_name")
-  platformAccountId     String          @map("platform_account_id")
-  accessTokenEncrypted  String          @map("access_token_encrypted")
-  refreshTokenEncrypted String?         @map("refresh_token_encrypted")
-  expiresAt             DateTime?       @map("expires_at")
-  scopesJson            String?         @map("scopes_json")
-  status                String          @default("CONNECTED") // CONNECTED, EXPIRED, REAUTH_REQUIRED, REVOKED, ERROR
-  metadataJson          String?         @map("metadata_json")
-  createdAt             DateTime        @default(now()) @map("created_at")
-  updatedAt             DateTime        @updatedAt @map("updated_at")
-
-  publishTargets        PublishTarget[]
+  id                    String    @id @default(cuid())
+  ownerId               String?   @map("owner_id")
+  workspaceId           String?   @map("workspace_id")
+  platform              String
+  displayName           String?   @map("display_name")
+  platformAccountId     String    @map("platform_account_id")
+  accessTokenEncrypted  String    @map("access_token_encrypted")
+  refreshTokenEncrypted String?   @map("refresh_token_encrypted")
+  expiresAt             DateTime? @map("expires_at")
+  scopesJson            String?   @map("scopes_json")
+  status                String    @default("CONNECTED")
+  metadataJson          String?   @map("metadata_json")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
 
   @@map("social_accounts")
-}
-
-model Post {
-  id           String          @id @default(cuid())
-  ownerId      String?         @map("owner_id")
-  workspaceId  String?         @map("workspace_id")
-  caption      String
-  scheduledFor DateTime?       @map("scheduled_for")
-  status       String          @default("DRAFT") // DRAFT, SCHEDULED, PROCESSING, PUBLISHED, PARTIALLY_PUBLISHED, FAILED, CANCELLED
-  createdAt    DateTime        @default(now()) @map("created_at")
-  updatedAt    DateTime        @updatedAt @map("updated_at")
-  cancelledAt  DateTime?       @map("cancelled_at")
-
-  mediaAssets    MediaAsset[]
-  publishTargets PublishTarget[]
-
-  @@index([status])
-  @@index([scheduledFor])
-  @@map("posts")
-}
-
-model MediaAsset {
-  id               String    @id @default(cuid())
-  postId           String?   @map("post_id")
-  b2Bucket         String    @map("b2_bucket")
-  b2Key            String    @map("b2_key")
-  originalFilename String    @map("original_filename")
-  mimeType         String    @map("mime_type")
-  sizeBytes        Int       @map("size_bytes")
-  width            Int?
-  height           Int?
-  durationMs       Int?      @map("duration_ms")
-  checksum         String?
-  status           String    @default("UPLOADING") // UPLOADING, UPLOADED, FAILED, DELETED
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
-
-  post             Post?     @relation(fields: [postId], references: [id], onDelete: Cascade)
-
-  @@index([postId])
-  @@map("media_assets")
-}
-
-model PublishTarget {
-  id                  String           @id @default(cuid())
-  postId              String           @map("post_id")
-  socialAccountId     String           @map("social_account_id")
-  platform            String           // INSTAGRAM, FACEBOOK, LINKEDIN, TIKTOK
-  status              String           @default("PENDING") // PENDING, SCHEDULED, PROCESSING, PUBLISHED, FAILED, RETRYING, REAUTH_REQUIRED, CANCELLED
-  scheduledFor        DateTime         @map("scheduled_for")
-  processingStartedAt DateTime?        @map("processing_started_at")
-  publishedAt         DateTime?        @map("published_at")
-  platformPostId      String?          @map("platform_post_id")
-  platformPostUrl     String?          @map("platform_post_url")
-  idempotencyKey      String           @unique @map("idempotency_key")
-  lastErrorCode       String?          @map("last_error_code")
-  lastErrorMessage    String?          @map("last_error_message")
-  retryCount          Int              @default(0) @map("retry_count")
-  nextRetryAt         DateTime?        @map("next_retry_at")
-  createdAt           DateTime         @default(now()) @map("created_at")
-  updatedAt           DateTime         @updatedAt @map("updated_at")
-
-  post                Post             @relation(fields: [postId], references: [id], onDelete: Cascade)
-  socialAccount       SocialAccount    @relation(fields: [socialAccountId], references: [id])
-  publishAttempts     PublishAttempt[]
-
-  @@index([status, scheduledFor])
-  @@index([postId])
-  @@map("publish_targets")
-}
-
-model PublishAttempt {
-  id                  String        @id @default(cuid())
-  publishTargetId     String        @map("publish_target_id")
-  attemptNumber       Int           @map("attempt_number")
-  status              String        // STARTED, SUCCESS, FAILED, SKIPPED
-  requestPayloadJson  String?       @map("request_payload_json")
-  responsePayloadJson String?       @map("response_payload_json")
-  errorCode           String?       @map("error_code")
-  errorMessage        String?       @map("error_message")
-  startedAt           DateTime      @default(now()) @map("started_at")
-  finishedAt          DateTime?     @map("finished_at")
-  createdAt           DateTime      @default(now()) @map("created_at")
-
-  publishTarget       PublishTarget @relation(fields: [publishTargetId], references: [id], onDelete: Cascade)
-
-  @@index([publishTargetId])
-  @@map("publish_attempts")
 }

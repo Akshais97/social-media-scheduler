@@ -28,9 +28,10 @@ export default function PostsPage() {
 
   const filteredPosts = posts.filter((post) => {
     const matchesTab = activeTab === 'ALL' || post.status === activeTab;
+    const caption = post.caption || post.draftContentJson?.caption || '';
     const matchesSearch =
       searchQuery.trim() === '' ||
-      post.caption.toLowerCase().includes(searchQuery.toLowerCase());
+      caption.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesTab && matchesSearch;
   });
 
@@ -126,7 +127,7 @@ export default function PostsPage() {
                 {/* Caption & Metadata */}
                 <div className="min-w-0 space-y-1">
                   <p className="text-sm text-zinc-200 font-medium line-clamp-2 max-w-2xl">
-                    {post.caption}
+                    {post.caption || post.draftContentJson?.caption || ''}
                   </p>
 
                   <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono text-zinc-500">

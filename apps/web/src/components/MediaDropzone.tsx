@@ -35,20 +35,28 @@ export default function MediaDropzone({ mediaAssets, onChange }: MediaDropzonePr
     }
 
     setUploading(true);
-    const simulatedB2Key = `social-scheduler/uploads/2026/09/b2_${Date.now()}/${file.name.replace(/\s+/g, '_')}`;
     const objectUrl = URL.createObjectURL(file);
-
     setTimeout(() => {
+      const safeName = file.name.replace(/\s+/g, '_');
+      const simulatedB2Key = `social-scheduler/uploads/2026/09/b2_${Date.now()}/${safeName}`;
       const newAsset: MediaAsset = {
         id: `media_${Date.now()}`,
+        workspaceId: 'ws_mantri',
+        uploadedByUserId: 'usr_admin',
+        originalFileName: file.name,
+        safeFileName: safeName,
+        bucket: 'social-scheduler-media',
         b2Bucket: 'social-scheduler-media',
+        objectKey: simulatedB2Key,
         b2Key: simulatedB2Key,
         originalFilename: file.name,
         mimeType: file.type,
+        byteSize: file.size,
         sizeBytes: file.size,
         status: MediaAssetStatus.UPLOADED,
         previewUrl: objectUrl,
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
 
       onChange([...mediaAssets, newAsset]);
@@ -144,10 +152,10 @@ export default function MediaDropzone({ mediaAssets, onChange }: MediaDropzonePr
 
                 <div className="flex flex-col">
                   <span className="text-xs font-medium text-zinc-200 truncate max-w-[200px] md:max-w-xs">
-                    {asset.originalFilename}
+                    {asset.originalFilename || asset.originalFileName}
                   </span>
                   <div className="flex items-center gap-2 mt-0.5 text-[10px] font-mono text-zinc-500">
-                    <span>{(asset.sizeBytes / (1024 * 1024)).toFixed(2)} MB</span>
+                    <span>{((((asset.sizeBytes ?? asset.byteSize) || 0) / (1024 * 1024)).toFixed(2))} MB</span>
                     <span>•</span>
                     <span className="text-emerald-400 flex items-center gap-1">
                       <CheckCircle2 className="h-3 w-3" />

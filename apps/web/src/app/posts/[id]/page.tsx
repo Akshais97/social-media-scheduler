@@ -122,15 +122,15 @@ export default function PostDetailPage({ params }: PostDetailPageProps) {
                 />
 
                 <div className="min-w-0 space-y-1.5 text-xs">
-                  <div className="font-semibold text-zinc-100 truncate">{asset.originalFilename}</div>
+                  <div className="font-semibold text-zinc-100 truncate">{asset.originalFilename || asset.originalFileName}</div>
                   <div className="text-zinc-400 font-mono text-[11px]">
-                    Bucket: <span className="text-zinc-200">{asset.b2Bucket}</span>
+                    Bucket: <span className="text-zinc-200">{asset.b2Bucket || asset.bucket}</span>
                   </div>
                   <div className="text-zinc-400 font-mono text-[11px] break-all">
-                    Key: <span className="text-indigo-300">{asset.b2Key}</span>
+                    Key: <span className="text-indigo-300">{asset.b2Key || asset.objectKey}</span>
                   </div>
                   <div className="text-[11px] font-mono text-zinc-500">
-                    MIME: {asset.mimeType} • Size: {(asset.sizeBytes / (1024 * 1024)).toFixed(2)} MB
+                    MIME: {asset.mimeType} • Size: {(((asset.sizeBytes ?? asset.byteSize) || 0) / (1024 * 1024)).toFixed(2)} MB
                   </div>
                 </div>
               </div>
@@ -208,9 +208,9 @@ export default function PostDetailPage({ params }: PostDetailPageProps) {
                   )}
 
                   <div className="pt-1 text-[10px] font-mono text-zinc-500 flex justify-between">
-                    <span>Retry Count: {target.retryCount}</span>
-                    <span className="truncate max-w-[160px]" title={target.idempotencyKey}>
-                      Key: {target.idempotencyKey.slice(0, 15)}...
+                    <span>Retry Count: {target.retryCount ?? 0}</span>
+                    <span className="truncate max-w-[160px]" title={target.idempotencyKey || target.id}>
+                      Key: {(target.idempotencyKey || target.id).slice(0, 15)}...
                     </span>
                   </div>
                 </div>

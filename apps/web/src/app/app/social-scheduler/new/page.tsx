@@ -168,7 +168,7 @@ export default function NewPostStudioPage() {
     }
   };
 
-  const handleUploadAndContinue = () => {
+  const handleUploadAndContinue = async () => {
     if (!mediaFile) {
       setError('Please select a media file to upload.');
       return;
@@ -181,21 +181,67 @@ export default function NewPostStudioPage() {
     setUploading(true);
     setError(null);
 
-    setTimeout(() => {
-      const assetId = `asset_${Date.now()}`;
-      const safeName = mediaFile.name.replace(/\s+/g, '_');
-      const objectKey = `workspaces/${selectedWorkspace.id}/social-scheduler/2026/09/${assetId}/${safeName}`;
-      const previewUrl = URL.createObjectURL(mediaFile);
+    try {
+      // 1. Initiate upload with backend (generates real Backblaze B2 presigned PUT URL)
+      const initRes = await fetch('/api/v0/social-scheduler/media/initiate-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workspaceId: selectedWorkspace.id,
+          fileName: mediaFile.name,
+          mimeType: mediaFile.type,
+          byteSize: mediaFile.size,
+          bucket: selectedWorkspace.storageBucket || 'sakhaa-forge-clean-media',
+        }),
+      });
+
+      if (!initRes.ok) {
+        const errJson = await initRes.json().catch(() => ({}));
+        throw new Error(errJson.error || 'Failed to initiate B2 upload');
+      }
+
+      const initData = await initRes.json();
+      const { uploadUrl, objectKey, bucket, mediaAssetId } = initData;
+
+      // 2. Direct binary HTTP PUT upload directly to Backblaze B2
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': mediaFile.type,
+        },
+        body: mediaFile,
+      });
+
+      if (!uploadRes.ok) {
+        throw new Error(`Backblaze B2 upload failed with status ${uploadRes.status}`);
+      }
+
+      // 3. Complete upload with backend (verifies object in B2 and creates presigned preview)
+      const compRes = await fetch('/api/v0/social-scheduler/media/complete-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workspaceId: selectedWorkspace.id,
+          mediaAssetId,
+          objectKey,
+          bucket,
+        }),
+      });
+
+      const compData = await compRes.json();
+      const previewUrl =
+        compData.previewUrl ||
+        `/api/v0/social-scheduler/media/preview?key=${encodeURIComponent(objectKey)}&bucket=${encodeURIComponent(bucket)}`;
 
       const asset: Sprint1MediaAsset = {
-        id: assetId,
+        id: mediaAssetId,
         workspaceId: selectedWorkspace.id,
         uploadedByUserId: 'usr_admin',
         originalFileName: mediaFile.name,
-        safeFileName: safeName,
+        safeFileName: mediaFile.name.replace(/\s+/g, '_'),
         mimeType: mediaFile.type,
         byteSize: mediaFile.size,
-        bucket: selectedWorkspace.storageBucket,
+        bucket,
         objectKey,
         status: SocialSchedulerMediaStatus.UPLOADED,
         previewUrl,
@@ -206,7 +252,11 @@ export default function NewPostStudioPage() {
       setMediaAsset(asset);
       setUploading(false);
       setCurrentStage(3); // Advance to Compose
-    }, 600);
+    } catch (err: any) {
+      console.error('B2 Upload error:', err);
+      setError(err.message || 'Error uploading file to Backblaze B2');
+      setUploading(false);
+    }
   };
 
   const togglePlatform = (p: SocialSchedulerPlatform) => {

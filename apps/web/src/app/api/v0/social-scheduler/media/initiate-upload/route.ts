@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
+import { createPresignedUploadUrl, getDefaultB2Bucket } from '@/lib/b2';
 
 const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime'];
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { workspaceId, fileName, mimeType, byteSize } = body;
+    const { workspaceId, fileName, mimeType, byteSize, bucket: requestedBucket } = body;
 
     if (!workspaceId || !fileName || !mimeType || !byteSize) {
       return NextResponse.json(
@@ -32,14 +33,24 @@ export async function POST(request: Request) {
 
     const mediaAssetId = `asset_${Date.now()}`;
     const safeFileName = fileName.replace(/\s+/g, '_');
+    const bucket = requestedBucket || getDefaultB2Bucket();
     const objectKey = `workspaces/${workspaceId}/social-scheduler/2026/09/${mediaAssetId}/${safeFileName}`;
-    const uploadUrl = `https://b2.backblazeb2.com/file/sakhaa-media/${objectKey}?uploadToken=mock_token_${Date.now()}`;
+
+    // Generate real presigned Backblaze B2 PUT URL
+    const uploadUrl = await createPresignedUploadUrl({
+      bucket,
+      key: objectKey,
+      contentType: mimeType,
+      expiresIn: 900, // 15 minutes
+    });
+
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
     return NextResponse.json({
       mediaAssetId,
       uploadUrl,
       objectKey,
+      bucket,
       expiresAt,
     });
   } catch (err: unknown) {

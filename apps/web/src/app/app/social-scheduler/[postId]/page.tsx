@@ -149,12 +149,20 @@ export default function PostDetailPage({ params }: PostDetailPageProps) {
                 key={asset.id}
                 className="p-4 rounded-xl bg-zinc-900/60 border border-white/5 flex flex-col sm:flex-row gap-4 items-start"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={asset.previewUrl}
-                  alt={asset.originalFileName}
-                  className="h-24 w-24 rounded-lg object-cover bg-zinc-800 border border-white/10 flex-shrink-0"
-                />
+                {asset.mimeType.startsWith('video/') ? (
+                  <video
+                    src={asset.previewUrl || `/api/v0/social-scheduler/media/preview?key=${encodeURIComponent(asset.objectKey)}&bucket=${encodeURIComponent(asset.bucket)}`}
+                    controls
+                    className="h-28 w-36 rounded-lg object-cover bg-zinc-800 border border-white/10 flex-shrink-0"
+                  />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={asset.previewUrl || `/api/v0/social-scheduler/media/preview?key=${encodeURIComponent(asset.objectKey)}&bucket=${encodeURIComponent(asset.bucket)}`}
+                    alt={asset.originalFileName}
+                    className="h-24 w-24 rounded-lg object-cover bg-zinc-800 border border-white/10 flex-shrink-0"
+                  />
+                )}
 
                 <div className="min-w-0 space-y-1.5 text-xs">
                   <div className="font-semibold text-zinc-100 truncate">{asset.originalFileName}</div>

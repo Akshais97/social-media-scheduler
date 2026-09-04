@@ -115,3 +115,11 @@ export async function verifyB2Object(params: {
     return { exists: false };
   }
 }
+
+export const b2Storage = {
+  getPresignedUploadUrl: (key: string, contentType: string, expiresIn?: number) =>
+    createPresignedUploadUrl({ key, contentType, expiresIn }),
+  getPresignedDownloadUrl: (key: string, expiresIn?: number) =>
+    createPresignedDownloadUrl({ key, expiresIn }),
+  verifyObject: (key: string) => verifyB2Object({ key }),
+};

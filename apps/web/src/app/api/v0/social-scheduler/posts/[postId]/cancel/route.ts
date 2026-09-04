@@ -8,11 +8,11 @@ export async function POST(
   try {
     const { postId } = await params;
     const body = await request.json().catch(() => ({}));
-    const { workspaceId } = body;
+    const { workspaceId, reason, userId } = body;
 
-    const cancelled = sprint1Storage.cancelPost(postId);
+    const cancelled = sprint1Storage.cancelPost(postId, workspaceId, reason, userId);
     if (!cancelled) {
-      return NextResponse.json({ error: 'Post not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Post not found or cannot be cancelled' }, { status: 404 });
     }
 
     return NextResponse.json({

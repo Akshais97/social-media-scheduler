@@ -9,10 +9,16 @@ export async function POST(request: Request) {
     const workerSecret = request.headers.get('X-Worker-Secret');
     const isDev = process.env.NODE_ENV !== 'production';
 
-    // Allow in dev mode if secret is not provided or if secret matches
-    if (!isDev && workerSecret !== EXPECTED_SECRET) {
+    if (workerSecret && workerSecret !== EXPECTED_SECRET) {
       return NextResponse.json(
-        { error: 'Unauthorized: Invalid or missing X-Worker-Secret' },
+        { error: 'Unauthorized: Invalid X-Worker-Secret' },
+        { status: 401 }
+      );
+    }
+
+    if (!isDev && !workerSecret) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Missing X-Worker-Secret' },
         { status: 401 }
       );
     }

@@ -124,7 +124,27 @@ export default function Header() {
               : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
           }`}
         >
-          Scheduler Queue
+          Queue
+        </Link>
+        <Link
+          href="/app/social-scheduler/calendar"
+          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+            pathname.startsWith('/app/social-scheduler/calendar')
+              ? 'bg-white/10 text-white shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
+          }`}
+        >
+          Calendar
+        </Link>
+        <Link
+          href="/app/social-scheduler/health"
+          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+            pathname.startsWith('/app/social-scheduler/health')
+              ? 'bg-white/10 text-white shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
+          }`}
+        >
+          Health
         </Link>
         <Link
           href="/app/social-scheduler/new"
@@ -134,17 +154,27 @@ export default function Header() {
               : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
           }`}
         >
-          Creation Studio
+          Studio
         </Link>
         <Link
-          href="/settings"
+          href="/app/social-accounts"
           className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-            pathname === '/settings'
+            pathname.startsWith('/app/social-accounts') || pathname.startsWith('/social-accounts')
               ? 'bg-white/10 text-white shadow-sm'
               : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
           }`}
         >
-          Infrastructure
+          Accounts
+        </Link>
+        <Link
+          href="/app/social-scheduler/settings"
+          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+            pathname.startsWith('/app/social-scheduler/settings')
+              ? 'bg-white/10 text-white shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
+          }`}
+        >
+          Settings
         </Link>
       </nav>
 

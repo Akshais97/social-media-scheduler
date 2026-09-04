@@ -3,8 +3,16 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { sprint1Storage } from '../../../lib/mock-storage';
-import { Sprint1ScheduledPost, Workspace, SocialSchedulerPostStatus, SocialSchedulerTargetStatus } from '../../../types/scheduler';
+import {
+  Sprint1ScheduledPost,
+  Workspace,
+  SocialSchedulerPostStatus,
+  SocialSchedulerTargetStatus,
+  SchedulerOverviewSummary,
+} from '../../../types/scheduler';
 import StatusBadge from '../../../components/StatusBadge';
+import SchedulerSubNav from '../../../components/SchedulerSubNav';
+import ReschedulePostModal from '../../../components/ReschedulePostModal';
 import { WorkerDiagnosticsPanel } from '../../../components/WorkerDiagnosticsPanel';
 import {
   Plus,
@@ -18,6 +26,9 @@ import {
   Cpu,
   Clock,
   Layers,
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
 } from 'lucide-react';
 
 const FILTER_TABS = [
@@ -35,16 +46,20 @@ const FILTER_TABS = [
 export default function SocialSchedulerHomePage() {
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(null);
   const [posts, setPosts] = useState<Sprint1ScheduledPost[]>([]);
+  const [overview, setOverview] = useState<SchedulerOverviewSummary | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [triggeringPostId, setTriggeringPostId] = useState<string | null>(null);
+  const [rescheduleTargetPost, setRescheduleTargetPost] = useState<Sprint1ScheduledPost | null>(null);
 
   const loadPosts = () => {
     const ws = sprint1Storage.getActiveWorkspace();
     setActiveWorkspace(ws);
     const now = Date.now();
     let allPosts = sprint1Storage.getPosts(ws.id);
+    const ov = sprint1Storage.getSchedulerOverview(ws.id);
+    setOverview(ov);
 
     // Custom filtering for Sprint 2 statuses
     if (activeFilter === 'DUE') {
@@ -89,7 +104,7 @@ export default function SocialSchedulerHomePage() {
   }, [activeFilter, searchQuery]);
 
   const handleCancelPost = (postId: string) => {
-    sprint1Storage.cancelPost(postId);
+    sprint1Storage.cancelPost(postId, activeWorkspace?.id);
     loadPosts();
   };
 
@@ -98,10 +113,7 @@ export default function SocialSchedulerHomePage() {
     try {
       await fetch('/api/v0/social-scheduler/worker/process-due', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Worker-Secret': 'sakhaa_worker_secret_sprint2',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           limit: 10,
           mockMode: 'success',
@@ -110,23 +122,25 @@ export default function SocialSchedulerHomePage() {
       });
       loadPosts();
     } catch (err) {
-      console.error('Failed to run mock publish:', err);
+      console.error('Failed to trigger mock publish', err);
     } finally {
       setTriggeringPostId(null);
     }
   };
 
   const getTargetSummary = (post: Sprint1ScheduledPost) => {
-    const total = post.targets.length;
-    const published = post.targets.filter(
-      (t) => t.status === SocialSchedulerTargetStatus.PUBLISHED_MOCK || t.status === SocialSchedulerTargetStatus.PUBLISHED
-    ).length;
-    const retrying = post.targets.filter((t) => t.status === SocialSchedulerTargetStatus.RETRYING).length;
-    const failed = post.targets.filter((t) => t.status === SocialSchedulerTargetStatus.FAILED).length;
-    const processing = post.targets.filter((t) => t.status === SocialSchedulerTargetStatus.PROCESSING).length;
+    const total = post.targets?.length || 0;
+    const published = post.targets?.filter(
+      (t) =>
+        t.status === SocialSchedulerTargetStatus.PUBLISHED_MOCK ||
+        t.status === SocialSchedulerTargetStatus.PUBLISHED ||
+        t.status === SocialSchedulerTargetStatus.PRIVATE_RESTRICTED
+    ).length || 0;
+    const failed = post.targets?.filter((t) => t.status === SocialSchedulerTargetStatus.FAILED).length || 0;
+    const retrying = post.targets?.filter((t) => t.status === SocialSchedulerTargetStatus.RETRYING).length || 0;
 
-    if (published === total && total > 0) return `${total} targets published (mock)`;
-    if (processing > 0) return `${processing} processing · ${total - processing} waiting`;
+    if (total === 0) return 'No platform targets';
+    if (published === total) return `All ${total} published`;
     if (retrying > 0) return `${retrying} retrying · ${published} published`;
     if (failed > 0) return `${failed} failed · ${published} published`;
     return `${total} platform targets scheduled`;
@@ -134,22 +148,41 @@ export default function SocialSchedulerHomePage() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
+      <SchedulerSubNav />
+
       {/* Header Area */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-white/5 pb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-white/5 pb-6">
         <div>
           <div className="flex items-center gap-2.5">
             <h1 className="text-2xl font-bold text-white tracking-tight">Social Scheduler</h1>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#D6B46A]/10 text-[#D6B46A] border border-[#D6B46A]/20">
-              Sprint 2 Operational
+              Sprint 8 Production Ready
             </span>
           </div>
           <p className="text-xs text-zinc-400 mt-1 max-w-2xl">
-            Schedule approved media posts with automated worker due detection, atomic claiming, and attempt timelines.
+            Plan, publish, and monitor approved client media across connected social platforms with hardened preflights and calendar visualization.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Link
+            href="/app/social-scheduler/calendar"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-white/10 text-xs font-medium transition-colors"
+          >
+            <Calendar className="w-3.5 h-3.5 text-[#D6B46A]" />
+            <span>Open Calendar</span>
+          </Link>
+
+          <Link
+            href="/app/social-scheduler/health"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-white/10 text-xs font-medium transition-colors"
+          >
+            <Activity className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Account Health</span>
+          </Link>
+
           <button
+            type="button"
             onClick={() => setShowDiagnostics(!showDiagnostics)}
             className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono font-medium border transition-colors ${
               showDiagnostics
@@ -179,6 +212,62 @@ export default function SocialSchedulerHomePage() {
         />
       )}
 
+      {/* Overview Metric Cards */}
+      {overview && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="p-3.5 rounded-xl bg-zinc-950/60 border border-white/5">
+            <span className="text-[11px] font-mono text-zinc-500 uppercase block">Scheduled Today</span>
+            <span className="text-xl font-bold text-white mt-1 block">{overview.scheduledToday}</span>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-zinc-950/60 border border-white/5">
+            <span className="text-[11px] font-mono text-zinc-500 uppercase block">Publishing Soon</span>
+            <span className="text-xl font-bold text-indigo-400 mt-1 block">{overview.publishingSoon}</span>
+          </div>
+
+          <div className={`p-3.5 rounded-xl border ${overview.needsAttention > 0 ? 'bg-amber-950/10 border-amber-500/30 text-amber-300' : 'bg-zinc-950/60 border-white/5 text-zinc-400'}`}>
+            <span className="text-[11px] font-mono uppercase block">Needs Attention</span>
+            <span className="text-xl font-bold mt-1 block">{overview.needsAttention}</span>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-zinc-950/60 border border-white/5">
+            <span className="text-[11px] font-mono text-zinc-500 uppercase block">Published This Week</span>
+            <span className="text-xl font-bold text-emerald-400 mt-1 block">{overview.publishedThisWeek}</span>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-zinc-950/60 border border-white/5">
+            <span className="text-[11px] font-mono text-zinc-500 uppercase block">Failed Targets</span>
+            <span className="text-xl font-bold text-red-400 mt-1 block">{overview.failedTargets}</span>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-zinc-950/60 border border-white/5">
+            <span className="text-[11px] font-mono text-zinc-500 uppercase block">Reauth Required</span>
+            <span className="text-xl font-bold text-rose-400 mt-1 block">{overview.reauthRequired}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Attention Required Banner */}
+      {overview && overview.attentionItems.length > 0 && (
+        <div className="p-4 rounded-xl bg-amber-950/20 border border-amber-800/40 text-xs text-amber-200 flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex-1 space-y-1">
+            <h4 className="font-semibold text-amber-300">
+              {overview.attentionItems.length} post(s) require operator review
+            </h4>
+            <p className="text-amber-200/80 text-[11px]">
+              Issues detected: {overview.attentionItems.map((i) => `${i.postTitle} (${i.reason})`).slice(0, 2).join('; ')}
+            </p>
+          </div>
+          <Link
+            href={`/app/social-scheduler/${overview.attentionItems[0].postId}`}
+            className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 text-xs font-semibold whitespace-nowrap transition-colors"
+          >
+            Review Issues
+          </Link>
+        </div>
+      )}
+
       {/* Active Workspace Banner */}
       {activeWorkspace && (
         <div className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-950/60 border border-white/5 text-xs text-zinc-400">
@@ -197,7 +286,7 @@ export default function SocialSchedulerHomePage() {
       )}
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <div id="posts" className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-2">
         {/* Filter Chips */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
           {FILTER_TABS.map((tab) => {
@@ -260,7 +349,8 @@ export default function SocialSchedulerHomePage() {
           {posts.map((post) => {
             const isTerminal =
               post.status === SocialSchedulerPostStatus.CANCELLED ||
-              post.status === SocialSchedulerPostStatus.PUBLISHED_MOCK;
+              post.status === SocialSchedulerPostStatus.PUBLISHED_MOCK ||
+              post.status === SocialSchedulerPostStatus.PUBLISHED;
             const isProcessing = post.status === SocialSchedulerPostStatus.PROCESSING;
 
             return (
@@ -326,7 +416,6 @@ export default function SocialSchedulerHomePage() {
 
                 {/* Right: Actions */}
                 <div className="flex items-center gap-2 flex-shrink-0 self-end md:self-center">
-                  {/* Run mock publish trigger for due posts in admin mode */}
                   {!isTerminal && !isProcessing && (
                     <button
                       onClick={() => handleRunMockPublishForPost(post.id)}
@@ -339,6 +428,17 @@ export default function SocialSchedulerHomePage() {
                     </button>
                   )}
 
+                  {!isTerminal && !isProcessing && (
+                    <button
+                      onClick={() => setRescheduleTargetPost(post)}
+                      className="px-2.5 py-1.5 rounded-lg bg-[#D6B46A]/10 hover:bg-[#D6B46A]/20 text-[#D6B46A] border border-[#D6B46A]/20 text-xs font-medium flex items-center gap-1 transition-colors"
+                      title="Reschedule post"
+                    >
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>Reschedule</span>
+                    </button>
+                  )}
+
                   <Link
                     href={`/app/social-scheduler/${post.id}`}
                     className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 text-xs font-medium border border-white/5 flex items-center gap-1.5 transition-colors"
@@ -347,23 +447,40 @@ export default function SocialSchedulerHomePage() {
                     <span>View</span>
                   </Link>
 
-                  {post.status !== SocialSchedulerPostStatus.CANCELLED &&
-                    post.status !== SocialSchedulerPostStatus.PUBLISHED_MOCK &&
-                    post.status !== SocialSchedulerPostStatus.PROCESSING && (
-                      <button
-                        onClick={() => handleCancelPost(post.id)}
-                        className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-medium border border-rose-500/20 flex items-center gap-1.5 transition-colors"
-                        title="Cancel post"
-                      >
-                        <Ban className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">Cancel</span>
-                      </button>
-                    )}
+                  {!isTerminal && !isProcessing && (
+                    <button
+                      onClick={() => handleCancelPost(post.id)}
+                      className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-medium border border-rose-500/20 flex items-center gap-1.5 transition-colors"
+                      title="Cancel post"
+                    >
+                      <Ban className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Cancel</span>
+                    </button>
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
+      )}
+
+      {/* Reschedule Modal */}
+      {rescheduleTargetPost && (
+        <ReschedulePostModal
+          isOpen={!!rescheduleTargetPost}
+          onClose={() => setRescheduleTargetPost(null)}
+          post={{
+            id: rescheduleTargetPost.id,
+            title: rescheduleTargetPost.title,
+            scheduledAt: rescheduleTargetPost.scheduledAt,
+            timezone: rescheduleTargetPost.timezone,
+          }}
+          workspaceId={activeWorkspace?.id || 'ws_mantri'}
+          onSuccess={() => {
+            loadPosts();
+            setRescheduleTargetPost(null);
+          }}
+        />
       )}
     </div>
   );

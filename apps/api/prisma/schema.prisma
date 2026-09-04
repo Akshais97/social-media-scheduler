@@ -1,5 +1,5 @@
 // Prisma Schema — Social Media Scheduler
-// Conforms strictly to Sprint 1 & Sprint 2 Documentation
+// Conforms strictly to Sprint 1, Sprint 2 & Sprint 3 Documentation
 
 datasource db {
   provider  = "postgresql"
@@ -12,7 +12,7 @@ generator client {
 }
 
 // ---------------------------------------------------------
-// Sprint 2 Status Enums
+// Status Enums (Sprint 1, 2 & 3)
 // ---------------------------------------------------------
 
 enum SocialSchedulerPostStatus {
@@ -20,8 +20,13 @@ enum SocialSchedulerPostStatus {
   SCHEDULED
   PROCESSING
   PUBLISHED_MOCK
+  PUBLISHED
+  PARTIALLY_PUBLISHED
   PARTIALLY_FAILED
   RETRYING
+  REAUTH_REQUIRED
+  COST_BLOCKED
+  APPROVAL_BLOCKED
   FAILED
   CANCELLED
 }
@@ -46,8 +51,16 @@ enum SocialSchedulerTargetStatus {
   SCHEDULED
   DUE
   PROCESSING
+  PLATFORM_PROCESSING
   PUBLISHED_MOCK
+  PUBLISHED
   RETRYING
+  REAUTH_REQUIRED
+  LIMIT_REACHED
+  QUOTA_BLOCKED
+  COST_BLOCKED
+  APPROVAL_BLOCKED
+  PRIVATE_RESTRICTED
   FAILED
   SKIPPED
   CANCELLED
@@ -55,11 +68,56 @@ enum SocialSchedulerTargetStatus {
 
 enum SocialPublishAttemptStatus {
   STARTED
+  CONTAINER_CREATED
+  PLATFORM_PROCESSING
   SUCCEEDED
   FAILED_RETRYABLE
   FAILED_PERMANENT
   TIMED_OUT
+  REAUTH_REQUIRED
+  RATE_LIMITED
+  LIMIT_REACHED
+  QUOTA_BLOCKED
+  COST_BLOCKED
+  APPROVAL_BLOCKED
+  PRIVATE_RESTRICTED
   SKIPPED
+}
+
+enum SocialAccountStatus {
+  CONNECTED
+  REAUTH_REQUIRED
+  PERMISSION_MISSING
+  REVOKED
+  DISCONNECTED
+  ERROR
+}
+
+enum SocialAccountProvider {
+  META
+  GOOGLE
+  PINTEREST
+  X
+}
+
+enum SocialAccountType {
+  FACEBOOK_PAGE
+  INSTAGRAM_BUSINESS
+  INSTAGRAM_CREATOR
+  YOUTUBE_CHANNEL
+  PINTEREST_BOARD
+  PINTEREST_ACCOUNT
+  X_ACCOUNT
+  X_USER
+}
+
+enum InstagramContainerStatus {
+  CREATED
+  IN_PROGRESS
+  FINISHED
+  ERROR
+  EXPIRED
+  PUBLISHED
 }
 
 // ---------------------------------------------------------
@@ -78,13 +136,28 @@ model ScheduledSocialPost {
   scheduledAt      DateTime?                 @map("scheduled_at")
   timezone         String?
 
+  // Sprint 9: Batch & Duplication Links
+  batchId             String?                @map("batch_id")
+  sourcePostId        String?                @map("source_post_id")
+
+  // Sprint 9: Approval Workflow
+  approvalStatus          String                 @default("NOT_REQUIRED") @map("approval_status")
+  reviewRequestedAt       DateTime?              @map("review_requested_at")
+  reviewRequestedByUserId String?                @map("review_requested_by_user_id")
+  approvedAt              DateTime?              @map("approved_at")
+  approvedByUserId        String?                @map("approved_by_user_id")
+  changesRequestedAt      DateTime?              @map("changes_requested_at")
+  rejectedAt              DateTime?              @map("rejected_at")
+  rejectionReason         String?                @map("rejection_reason")
+
   createdAt        DateTime                  @default(now()) @map("created_at")
   updatedAt        DateTime                  @updatedAt @map("updated_at")
   cancelledAt      DateTime?                 @map("cancelled_at")
 
-  // Sprint 2 timestamp tracking
+  // Processing timestamp tracking
   lastProcessedAt  DateTime?                 @map("last_processed_at")
   publishedMockAt  DateTime?                 @map("published_mock_at")
+  publishedAt      DateTime?                 @map("published_at")
   failedAt         DateTime?                 @map("failed_at")
 
   media            SocialPostMedia[]
@@ -93,6 +166,8 @@ model ScheduledSocialPost {
 
   @@index([workspaceId, status])
   @@index([workspaceId, scheduledAt])
+  @@index([workspaceId, approvalStatus])
+  @@index([workspaceId, batchId])
   @@map("scheduled_social_posts")
 }
 
@@ -164,10 +239,39 @@ model SocialPublishTarget {
   mockExternalId    String?                     @map("mock_external_id")
   mockExternalUrl   String?                     @map("mock_external_url")
 
+  // Sprint 3 live provider fields
+  socialAccountId   String?                     @map("social_account_id")
+  publishMode       String                      @default("MOCK") @map("publish_mode")
+  provider          SocialAccountProvider?
+  externalPostId    String?                     @map("external_post_id")
+  externalPostUrl   String?                     @map("external_post_url")
+  reauthRequiredAt  DateTime?                   @map("reauth_required_at")
+
+  // Sprint 4 Instagram lifecycle fields
+  instagramContainerId       String?           @map("instagram_container_id")
+  platformProcessingAt       DateTime?         @map("platform_processing_at")
+  platformReadyAt            DateTime?         @map("platform_ready_at")
+  platformPublishAttemptedAt DateTime?         @map("platform_publish_attempted_at")
+
+  // Sprint 5 Pinterest fields
+  pinterestBoardId           String?           @map("pinterest_board_id")
+  pinterestBoardSectionId    String?           @map("pinterest_board_section_id")
+  platformOptionsJson        Json?             @map("platform_options_json")
+
+  // Sprint 6 YouTube fields
+  youtubeUploadReservationId String?           @map("youtube_upload_reservation_id")
+  youtubeUploadJobId         String?           @map("youtube_upload_job_id")
+
+  // Sprint 7 X fields
+  xMediaUploadJobId          String?           @map("x_media_upload_job_id")
+  xCostAcknowledgedAt        DateTime?         @map("x_cost_acknowledged_at")
+  xCostAcknowledgedBy        String?           @map("x_cost_acknowledged_by")
+
   createdAt         DateTime                    @default(now()) @map("created_at")
   updatedAt         DateTime                    @updatedAt @map("updated_at")
 
   post              ScheduledSocialPost         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  socialAccount     SocialAccount?              @relation(fields: [socialAccountId], references: [id])
   attempts          SocialPublishAttempt[]
 
   @@index([workspaceId, platform])
@@ -178,45 +282,510 @@ model SocialPublishTarget {
 }
 
 model SocialPublishAttempt {
-  id              String                     @id @default(uuid())
-  workspaceId     String                     @map("workspace_id")
-  postId          String                     @map("post_id")
-  targetId        String                     @map("target_id")
+  id                String                     @id @default(uuid())
+  workspaceId       String                     @map("workspace_id")
+  postId            String                     @map("post_id")
+  targetId          String                     @map("target_id")
 
-  platform        SocialSchedulerPlatform
-  attemptNumber   Int                        @map("attempt_number")
+  platform          SocialSchedulerPlatform
+  attemptNumber     Int                        @map("attempt_number")
 
-  status          SocialPublishAttemptStatus
+  status            SocialPublishAttemptStatus
 
-  workerRunId     String?                    @map("worker_run_id")
-  mockMode        String?                    @map("mock_mode")
+  workerRunId       String?                    @map("worker_run_id")
+  mockMode          String?                    @map("mock_mode")
 
-  startedAt       DateTime                   @default(now()) @map("started_at")
-  finishedAt      DateTime?                  @map("finished_at")
+  startedAt         DateTime                   @default(now()) @map("started_at")
+  finishedAt        DateTime?                  @map("finished_at")
 
-  errorCode       String?                    @map("error_code")
-  errorMessage    String?                    @map("error_message")
-  retryable       Boolean                    @default(false)
-  nextRetryAt     DateTime?                  @map("next_retry_at")
+  errorCode         String?                    @map("error_code")
+  errorMessage      String?                    @map("error_message")
+  retryable         Boolean                    @default(false)
+  nextRetryAt       DateTime?                  @map("next_retry_at")
 
-  requestJson     Json?                      @map("request_json")
-  responseJson    Json?                      @map("response_json")
-  diagnosticsJson Json?                      @map("diagnostics_json")
+  // Sprint 3 provider details
+  provider          SocialAccountProvider?
+  socialAccountId   String?                    @map("social_account_id")
+  providerRequestId String?                    @map("provider_request_id")
+  providerErrorCode String?                    @map("provider_error_code")
+  providerTraceId   String?                    @map("provider_trace_id")
 
-  externalPostId  String?                    @map("external_post_id")
-  externalPostUrl String?                    @map("external_post_url")
+  // Sprint 4 platform lifecycle stage
+  platformLifecycleStage String?               @map("platform_lifecycle_stage")
 
-  createdAt       DateTime                   @default(now()) @map("created_at")
-  updatedAt       DateTime                   @updatedAt @map("updated_at")
+  requestJson       Json?                      @map("request_json")
+  responseJson      Json?                      @map("response_json")
+  diagnosticsJson   Json?                      @map("diagnostics_json")
 
-  post            ScheduledSocialPost        @relation(fields: [postId], references: [id], onDelete: Cascade)
-  target          SocialPublishTarget        @relation(fields: [targetId], references: [id], onDelete: Cascade)
+  externalPostId    String?                    @map("external_post_id")
+  externalPostUrl   String?                    @map("external_post_url")
+
+  createdAt         DateTime                   @default(now()) @map("created_at")
+  updatedAt         DateTime                   @updatedAt @map("updated_at")
+
+  post              ScheduledSocialPost        @relation(fields: [postId], references: [id], onDelete: Cascade)
+  target            SocialPublishTarget        @relation(fields: [targetId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, postId])
   @@index([targetId, attemptNumber])
   @@index([workspaceId, status])
   @@index([nextRetryAt])
   @@map("social_publish_attempts")
+}
+
+model SocialAccount {
+  id                      String                  @id @default(uuid())
+  workspaceId             String                  @map("workspace_id")
+  connectedByUserId       String                  @map("connected_by_user_id")
+
+  provider                SocialAccountProvider
+  platform                SocialSchedulerPlatform
+  accountType             SocialAccountType       @map("account_type")
+
+  displayName             String                  @map("display_name")
+  username                String?
+  externalAccountId       String                  @map("external_account_id")
+  externalAccountIdMasked String?                 @map("external_account_id_masked")
+  externalParentId        String?                 @map("external_parent_id")
+
+  status                  SocialAccountStatus     @default(CONNECTED)
+
+  scopesJson              Json                    @map("scopes_json")
+  metadataJson            Json?                   @map("metadata_json")
+  credentialRef           String                  @map("credential_ref")
+
+  tokenExpiresAt          DateTime?               @map("token_expires_at")
+  lastConnectedAt         DateTime                @default(now()) @map("last_connected_at")
+  lastValidatedAt         DateTime?               @map("last_validated_at")
+  disconnectedAt          DateTime?               @map("disconnected_at")
+
+  createdAt               DateTime                @default(now()) @map("created_at")
+  updatedAt               DateTime                @updatedAt @map("updated_at")
+
+  targets                 SocialPublishTarget[]
+  pinterestBoards         PinterestBoard[]
+
+  @@unique([workspaceId, provider, externalAccountId])
+  @@index([workspaceId, provider, platform])
+  @@index([workspaceId, status])
+  @@map("social_accounts")
+}
+
+model SocialOAuthState {
+  id              String                @id @default(uuid())
+  workspaceId     String                @map("workspace_id")
+  userId          String                @map("user_id")
+  provider        SocialAccountProvider
+
+  stateHash       String                @map("state_hash")
+  redirectPath    String?               @map("redirect_path")
+  expiresAt       DateTime              @map("expires_at")
+  consumedAt      DateTime?             @map("consumed_at")
+
+  createdAt       DateTime              @default(now()) @map("created_at")
+
+  @@index([workspaceId, provider])
+  @@index([expiresAt])
+  @@map("social_oauth_states")
+}
+
+model InstagramPublishContainer {
+  id                    String                   @id @default(uuid())
+
+  workspaceId           String                   @map("workspace_id")
+  postId                String                   @map("post_id")
+  targetId              String                   @map("target_id")
+  attemptId             String?                  @map("attempt_id")
+
+  socialAccountId       String                   @map("social_account_id")
+
+  igUserId              String                   @map("ig_user_id")
+  containerId           String                   @map("container_id")
+
+  mediaType             String                   @map("media_type")
+  status                InstagramContainerStatus @default(CREATED)
+
+  statusCode            String?                  @map("status_code")
+  errorCode             String?                  @map("error_code")
+  errorMessage          String?                  @map("error_message")
+
+  createdAt             DateTime                 @default(now()) @map("created_at")
+  updatedAt             DateTime                 @updatedAt @map("updated_at")
+  lastPolledAt          DateTime?                @map("last_polled_at")
+  publishedAt           DateTime?                @map("published_at")
+
+  diagnosticsJson       Json?                    @map("diagnostics_json")
+
+  @@index([workspaceId, postId])
+  @@index([targetId])
+  @@index([containerId])
+  @@index([status])
+  @@map("instagram_publish_containers")
+}
+
+model PinterestBoard {
+  id                    String                   @id @default(uuid())
+
+  workspaceId           String                   @map("workspace_id")
+  socialAccountId       String                   @map("social_account_id")
+
+  externalBoardId       String                   @map("external_board_id")
+  name                  String
+  description           String?
+  privacy               String?
+  url                   String?
+
+  sectionCount          Int?                     @default(0) @map("section_count")
+  metadataJson          Json?                    @map("metadata_json")
+
+  lastSyncedAt          DateTime?                @map("last_synced_at")
+  createdAt             DateTime                 @default(now()) @map("created_at")
+  updatedAt             DateTime                 @updatedAt @map("updated_at")
+
+  socialAccount         SocialAccount            @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  sections              PinterestBoardSection[]
+
+  @@unique([workspaceId, socialAccountId, externalBoardId])
+  @@index([workspaceId, socialAccountId])
+  @@map("pinterest_boards")
+}
+
+model PinterestBoardSection {
+  id                    String                   @id @default(uuid())
+
+  workspaceId           String                   @map("workspace_id")
+  socialAccountId       String                   @map("social_account_id")
+  pinterestBoardId      String                   @map("pinterest_board_id")
+
+  externalSectionId     String                   @map("external_section_id")
+  name                  String
+
+  metadataJson          Json?                    @map("metadata_json")
+
+  lastSyncedAt          DateTime?                @map("last_synced_at")
+  createdAt             DateTime                 @default(now()) @map("created_at")
+  updatedAt             DateTime                 @updatedAt @map("updated_at")
+
+  board                 PinterestBoard           @relation(fields: [pinterestBoardId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, pinterestBoardId, externalSectionId])
+  @@index([workspaceId, socialAccountId])
+  @@map("pinterest_board_sections")
+}
+
+// ---------------------------------------------------------
+// Sprint 6 YouTube Models
+// ---------------------------------------------------------
+
+model YouTubeUploadQuotaLedger {
+  id                    String                @id @default(uuid())
+
+  quotaDate             String                @map("quota_date")
+  provider              SocialAccountProvider @default(GOOGLE)
+  quotaBucket           String                @default("videos.insert") @map("quota_bucket")
+
+  dailyLimit            Int                   @default(100) @map("daily_limit")
+  usedCount             Int                   @default(0) @map("used_count")
+  reservedCount         Int                   @default(0) @map("reserved_count")
+
+  resetTimezone         String                @default("America/Los_Angeles") @map("reset_timezone")
+  lastSyncedAt          DateTime?             @map("last_synced_at")
+
+  metadataJson          Json?                 @map("metadata_json")
+
+  createdAt             DateTime              @default(now()) @map("created_at")
+  updatedAt             DateTime              @updatedAt @map("updated_at")
+
+  @@unique([quotaDate, quotaBucket])
+  @@index([quotaDate])
+  @@map("youtube_upload_quota_ledgers")
+}
+
+model YouTubeUploadReservation {
+  id                    String                @id @default(uuid())
+
+  workspaceId           String                @map("workspace_id")
+  postId                String                @map("post_id")
+  targetId              String                @map("target_id")
+  socialAccountId       String                @map("social_account_id")
+
+  quotaDate             String                @map("quota_date")
+  status                String                @default("RESERVED")
+
+  reservedAt            DateTime              @default(now()) @map("reserved_at")
+  consumedAt            DateTime?             @map("consumed_at")
+  releasedAt            DateTime?             @map("released_at")
+
+  metadataJson          Json?                 @map("metadata_json")
+
+  createdAt             DateTime              @default(now()) @map("created_at")
+  updatedAt             DateTime              @updatedAt @map("updated_at")
+
+  @@unique([targetId])
+  @@index([quotaDate, status])
+  @@index([workspaceId, socialAccountId])
+  @@map("youtube_upload_reservations")
+}
+
+model YouTubeUploadJob {
+  id                    String                @id @default(uuid())
+
+  workspaceId           String                @map("workspace_id")
+  postId                String                @map("post_id")
+  targetId              String                @map("target_id")
+  attemptId             String?               @map("attempt_id")
+
+  socialAccountId       String                @map("social_account_id")
+  youtubeChannelId      String                @map("youtube_channel_id")
+
+  uploadStatus          String                @default("CREATED") @map("upload_status")
+  youtubeVideoId        String?               @map("youtube_video_id")
+  youtubeVideoUrl       String?               @map("youtube_video_url")
+
+  privacyStatus         String                @map("privacy_status")
+  title                 String
+  description           String?
+  categoryId            String?               @map("category_id")
+  madeForKids           Boolean?              @map("made_for_kids")
+  tagsJson              Json?                 @map("tags_json")
+
+  uploadStartedAt       DateTime?             @map("upload_started_at")
+  uploadFinishedAt      DateTime?             @map("upload_finished_at")
+  processingCheckedAt   DateTime?             @map("processing_checked_at")
+  publishedAt           DateTime?             @map("published_at")
+
+  errorCode             String?               @map("error_code")
+  errorMessage          String?               @map("error_message")
+
+  diagnosticsJson       Json?                 @map("diagnostics_json")
+
+  createdAt             DateTime              @default(now()) @map("created_at")
+  updatedAt             DateTime              @updatedAt @map("updated_at")
+
+  @@index([workspaceId, postId])
+  @@index([targetId])
+  @@index([youtubeVideoId])
+  @@index([uploadStatus])
+  @@map("youtube_upload_jobs")
+}
+
+model XMediaUploadJob {
+  id                    String                @id @default(uuid())
+
+  workspaceId           String                @map("workspace_id")
+  postId                String                @map("post_id")
+  targetId              String                @map("target_id")
+  attemptId             String?               @map("attempt_id")
+  socialAccountId       String                @map("social_account_id")
+
+  mediaAssetId          String                @map("media_asset_id")
+  mediaCategory         String                @map("media_category")
+  uploadStatus          String                @default("CREATED") @map("upload_status")
+
+  xMediaId              String?               @map("x_media_id")
+  xMediaIdString        String?               @map("x_media_id_string")
+
+  uploadStartedAt       DateTime?             @map("upload_started_at")
+  uploadFinishedAt      DateTime?             @map("upload_finished_at")
+  finalizedAt           DateTime?             @map("finalized_at")
+  processingCheckedAt   DateTime?             @map("processing_checked_at")
+
+  errorCode             String?               @map("error_code")
+  errorMessage          String?               @map("error_message")
+
+  diagnosticsJson       Json?                 @map("diagnostics_json")
+
+  createdAt             DateTime              @default(now()) @map("created_at")
+  updatedAt             DateTime              @updatedAt @map("updated_at")
+
+  @@index([workspaceId, postId])
+  @@index([targetId])
+  @@index([attemptId])
+  @@index([xMediaIdString])
+  @@index([uploadStatus])
+  @@map("x_media_upload_jobs")
+}
+
+model XApiCostLedger {
+  id                    String                @id @default(uuid())
+
+  workspaceId           String                @map("workspace_id")
+  postId                String?               @map("post_id")
+  targetId              String?               @map("target_id")
+  attemptId             String?               @map("attempt_id")
+  socialAccountId       String?               @map("social_account_id")
+
+  operation             String
+  estimatedUnitCostUsd  Decimal               @map("estimated_unit_cost_usd") @db.Decimal(10, 4)
+  actualUnitCostUsd     Decimal?              @map("actual_unit_cost_usd") @db.Decimal(10, 4)
+  quantity              Int                   @default(1)
+
+  estimatedTotalUsd     Decimal               @map("estimated_total_usd") @db.Decimal(10, 4)
+  actualTotalUsd        Decimal?              @map("actual_total_usd") @db.Decimal(10, 4)
+
+  pricingVersion        String?               @map("pricing_version")
+  costAcknowledgedBy    String?               @map("cost_acknowledged_by")
+  costAcknowledgedAt    DateTime?             @map("cost_acknowledged_at")
+
+  status                String                @default("ESTIMATED")
+
+  metadataJson          Json?                 @map("metadata_json")
+
+  createdAt             DateTime              @default(now()) @map("created_at")
+  updatedAt             DateTime              @updatedAt @map("updated_at")
+
+  @@index([workspaceId])
+  @@index([targetId])
+  @@index([attemptId])
+  @@index([operation])
+  @@map("x_api_cost_ledgers")
+}
+
+// ---------------------------------------------------------
+// Sprint 8: Hardening, Readiness & Observability Models
+// ---------------------------------------------------------
+
+model SocialSchedulerReadinessCheck {
+  id                  String   @id @default(uuid())
+  workspaceId         String   @map("workspace_id")
+  postId              String   @map("post_id")
+  targetId            String?  @map("target_id")
+
+  status              String
+  checkedAt           DateTime @default(now()) @map("checked_at")
+
+  blockingIssuesJson  Json     @map("blocking_issues_json")
+  warningsJson        Json     @map("warnings_json")
+  diagnosticsJson     Json?    @map("diagnostics_json")
+
+  createdByUserId     String?  @map("created_by_user_id")
+  source              String
+
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  @@index([workspaceId, postId])
+  @@index([workspaceId, status])
+  @@index([checkedAt])
+  @@map("social_scheduler_readiness_checks")
+}
+
+model SocialAccountHealthSnapshot {
+  id                  String                  @id @default(uuid())
+  workspaceId         String                  @map("workspace_id")
+  socialAccountId     String                  @map("social_account_id")
+  provider            SocialAccountProvider
+  platform            SocialSchedulerPlatform
+
+  status              String
+  checkedAt           DateTime                @default(now()) @map("checked_at")
+
+  permissionsJson     Json?                   @map("permissions_json")
+  quotaJson           Json?                   @map("quota_json")
+  rateLimitJson       Json?                   @map("rate_limit_json")
+  costJson            Json?                   @map("cost_json")
+  errorsJson          Json?                   @map("errors_json")
+  diagnosticsJson     Json?                   @map("diagnostics_json")
+
+  createdAt           DateTime                @default(now()) @map("created_at")
+
+  @@index([workspaceId, socialAccountId])
+  @@index([workspaceId, platform])
+  @@index([workspaceId, status])
+  @@index([checkedAt])
+  @@map("social_account_health_snapshots")
+}
+
+model SocialSchedulerAuditLog {
+  id                  String   @id @default(uuid())
+  workspaceId         String   @map("workspace_id")
+  actorUserId         String?  @map("actor_user_id")
+
+  entityType          String   @map("entity_type")
+  entityId            String   @map("entity_id")
+  action              String
+
+  beforeJson          Json?    @map("before_json")
+  afterJson           Json?    @map("after_json")
+  metadataJson        Json?    @map("metadata_json")
+
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  @@index([workspaceId, entityType, entityId])
+  @@index([workspaceId, action])
+  @@index([createdAt])
+  @@map("social_scheduler_audit_logs")
+}
+
+model PlatformQuotaSnapshot {
+  id                  String                   @id @default(uuid())
+  workspaceId         String?                  @map("workspace_id")
+  provider            SocialAccountProvider
+  platform            SocialSchedulerPlatform
+  socialAccountId     String?                  @map("social_account_id")
+
+  quotaType           String                   @map("quota_type")
+  limitValue          Int?                     @map("limit_value")
+  usedValue           Int?                     @map("used_value")
+  remainingValue      Int?                     @map("remaining_value")
+  resetAt             DateTime?                @map("reset_at")
+
+  rawMetadataJson     Json?                    @map("raw_metadata_json")
+  sanitizedJson       Json?                    @map("sanitized_json")
+
+  capturedAt          DateTime                 @default(now()) @map("captured_at")
+
+  @@index([workspaceId, platform])
+  @@index([socialAccountId])
+  @@index([capturedAt])
+  @@map("platform_quota_snapshots")
+}
+
+// ---------------------------------------------------------
+// Sprint 9: Batch & Approval Models
+// ---------------------------------------------------------
+
+model SocialSchedulerBatch {
+  id                String    @id @default(uuid())
+  workspaceId       String    @map("workspace_id")
+  createdByUserId   String    @map("created_by_user_id")
+
+  name              String
+  status            String    @default("DRAFTING")
+
+  totalPosts        Int       @default(0) @map("total_posts")
+  createdPosts      Int       @default(0) @map("created_posts")
+  failedPosts       Int       @default(0) @map("failed_posts")
+
+  source            String    @default("BULK_UI")
+  settingsJson      Json?     @map("settings_json")
+  summaryJson       Json?     @map("summary_json")
+  errorJson         Json?     @map("error_json")
+
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  completedAt       DateTime? @map("completed_at")
+
+  @@index([workspaceId, status])
+  @@index([createdAt])
+  @@map("social_scheduler_batches")
+}
+
+model SocialSchedulerReviewComment {
+  id                String   @id @default(uuid())
+  workspaceId       String   @map("workspace_id")
+  postId            String   @map("post_id")
+  authorUserId      String   @map("author_user_id")
+
+  commentType       String   @map("comment_type")
+  body              String
+  metadataJson      Json?    @map("metadata_json")
+
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@index([workspaceId, postId])
+  @@index([authorUserId])
+  @@map("social_scheduler_review_comments")
 }
 
 // ---------------------------------------------------------
@@ -231,23 +800,4 @@ model User {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@map("users")
-}
-
-model SocialAccount {
-  id                    String    @id @default(cuid())
-  ownerId               String?   @map("owner_id")
-  workspaceId           String?   @map("workspace_id")
-  platform              String
-  displayName           String?   @map("display_name")
-  platformAccountId     String    @map("platform_account_id")
-  accessTokenEncrypted  String    @map("access_token_encrypted")
-  refreshTokenEncrypted String?   @map("refresh_token_encrypted")
-  expiresAt             DateTime? @map("expires_at")
-  scopesJson            String?   @map("scopes_json")
-  status                String    @default("CONNECTED")
-  metadataJson          String?   @map("metadata_json")
-  createdAt             DateTime  @default(now()) @map("created_at")
-  updatedAt             DateTime  @updatedAt @map("updated_at")
-
-  @@map("social_accounts")
 }

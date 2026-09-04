@@ -57,9 +57,42 @@ export default function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
       dotColor = 'bg-rose-400';
       break;
 
+    case PostStatus.REAUTH_REQUIRED:
     case PublishTargetStatus.REAUTH_REQUIRED:
-      styles = 'bg-fuchsia-500/10 text-fuchsia-300 border-fuchsia-500/30';
-      dotColor = 'bg-fuchsia-400';
+      styles = 'bg-rose-500/10 text-rose-300 border-rose-500/30';
+      dotColor = 'bg-rose-400';
+      break;
+
+    case PostStatus.COST_BLOCKED:
+    case PublishTargetStatus.COST_BLOCKED:
+      styles = 'bg-amber-500/10 text-amber-300 border-amber-500/30';
+      dotColor = 'bg-amber-400';
+      break;
+
+    case PublishTargetStatus.QUOTA_BLOCKED:
+      styles = 'bg-rose-500/10 text-rose-300 border-rose-500/30';
+      dotColor = 'bg-rose-400';
+      break;
+
+    case PublishTargetStatus.LIMIT_REACHED:
+      styles = 'bg-amber-500/10 text-amber-300 border-amber-500/30';
+      dotColor = 'bg-amber-400';
+      break;
+
+    case PublishTargetStatus.PRIVATE_RESTRICTED:
+      styles = 'bg-amber-500/10 text-amber-300 border-amber-500/30';
+      dotColor = 'bg-amber-400';
+      break;
+
+    case PublishTargetStatus.PLATFORM_PROCESSING:
+      styles = 'bg-purple-500/10 text-purple-300 border-purple-500/30';
+      dotColor = 'bg-purple-400';
+      pulse = true;
+      break;
+
+    case PostStatus.PARTIALLY_PUBLISHED:
+      styles = 'bg-teal-500/10 text-teal-300 border-teal-500/30';
+      dotColor = 'bg-teal-400';
       break;
 
     case PostStatus.CANCELLED:

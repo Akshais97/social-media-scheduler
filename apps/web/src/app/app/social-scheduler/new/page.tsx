@@ -139,10 +139,99 @@ export default function NewPostStudioPage() {
   // Stage 6: Success
   const [createdPostId, setCreatedPostId] = useState<string | null>(null);
 
+  // Sprint 3: Live Social Accounts
+  const [connectedFacebookAccounts, setConnectedFacebookAccounts] = useState<any[]>([]);
+  const [selectedFacebookAccountId, setSelectedFacebookAccountId] = useState<string | null>(null);
+  const [facebookPublishMode, setFacebookPublishMode] = useState<'LIVE_META' | 'MOCK'>('LIVE_META');
+
+  // Sprint 4: Live Instagram Accounts
+  const [connectedInstagramAccounts, setConnectedInstagramAccounts] = useState<any[]>([]);
+  const [selectedInstagramAccountId, setSelectedInstagramAccountId] = useState<string | null>(null);
+  const [instagramPublishMode, setInstagramPublishMode] = useState<'LIVE_META' | 'MOCK'>('LIVE_META');
+  const [instagramFormat, setInstagramFormat] = useState<'FEED_IMAGE' | 'REEL_VIDEO'>('FEED_IMAGE');
+
+  // Sprint 5: Live Pinterest Accounts & Boards
+  const [connectedPinterestAccounts, setConnectedPinterestAccounts] = useState<any[]>([]);
+  const [selectedPinterestAccountId, setSelectedPinterestAccountId] = useState<string | null>(null);
+  const [pinterestPublishMode, setPinterestPublishMode] = useState<'LIVE_PINTEREST' | 'MOCK'>('LIVE_PINTEREST');
+  const [pinterestBoards, setPinterestBoards] = useState<any[]>([]);
+  const [selectedPinterestBoardId, setSelectedPinterestBoardId] = useState<string | null>(null);
+  const [pinTitle, setPinTitle] = useState('');
+  const [pinDescription, setPinDescription] = useState('');
+  const [pinDestinationLink, setPinDestinationLink] = useState('');
+
+  // Sprint 6: Live YouTube Accounts & Video Fields
+  const [connectedYouTubeAccounts, setConnectedYouTubeAccounts] = useState<any[]>([]);
+  const [selectedYouTubeAccountId, setSelectedYouTubeAccountId] = useState<string | null>(null);
+  const [youtubePublishMode, setYoutubePublishMode] = useState<'LIVE_GOOGLE' | 'MOCK'>('LIVE_GOOGLE');
+  const [youtubeTitle, setYoutubeTitle] = useState('');
+  const [youtubeDescription, setYoutubeDescription] = useState('');
+  const [youtubePrivacyStatus, setYoutubePrivacyStatus] = useState<'private' | 'unlisted' | 'public'>('private');
+  const [youtubeMadeForKids, setYoutubeMadeForKids] = useState<'no' | 'yes'>('no');
+  const [youtubeTagsStr, setYoutubeTagsStr] = useState('');
+  const [youtubeCategoryId, setYoutubeCategoryId] = useState('22');
+
+  // Sprint 7: Live Twitter/X Accounts & Fields
+  const [connectedXAccounts, setConnectedXAccounts] = useState<any[]>([]);
+  const [selectedXAccountId, setSelectedXAccountId] = useState<string | null>(null);
+  const [xPublishMode, setXPublishMode] = useState<'LIVE_X' | 'MOCK'>('LIVE_X');
+  const [xText, setXText] = useState('');
+  const [xMadeWithAi, setXMadeWithAi] = useState(false);
+  const [xPaidPartnership, setXPaidPartnership] = useState(false);
+  const [xCostAcknowledged, setXCostAcknowledged] = useState(false);
+  const [xContainsUrl, setXContainsUrl] = useState(false);
+  const [xEstimatedCostUsd, setXEstimatedCostUsd] = useState('0.015');
+
   useEffect(() => {
     const active = sprint1Storage.getActiveWorkspace();
     setSelectedWorkspace(active);
-  }, []);
+
+    const accounts = sprint1Storage.getSocialAccounts(active.id);
+    const fbPages = accounts.filter((a) => a.platform === SocialSchedulerPlatform.FACEBOOK && a.status === 'CONNECTED');
+    setConnectedFacebookAccounts(fbPages);
+    if (fbPages.length > 0) {
+      setSelectedFacebookAccountId(fbPages[0].id);
+      setFacebookPublishMode('LIVE_META');
+    } else {
+      setFacebookPublishMode('MOCK');
+    }
+
+    const igAccs = accounts.filter((a) => a.platform === SocialSchedulerPlatform.INSTAGRAM && a.status === 'CONNECTED');
+    setConnectedInstagramAccounts(igAccs);
+    if (igAccs.length > 0) {
+      setSelectedInstagramAccountId(igAccs[0].id);
+    }
+
+    const pinAccs = accounts.filter((a) => a.platform === SocialSchedulerPlatform.PINTEREST && a.status === 'CONNECTED');
+    setConnectedPinterestAccounts(pinAccs);
+    if (pinAccs.length > 0) {
+      setSelectedPinterestAccountId(pinAccs[0].id);
+      const boards = sprint1Storage.getPinterestBoards(active.id, pinAccs[0].id);
+      setPinterestBoards(boards);
+      if (boards.length > 0) {
+        setSelectedPinterestBoardId(boards[0].id);
+      }
+    }
+
+    const ytAccs = accounts.filter((a) => a.platform === SocialSchedulerPlatform.YOUTUBE && a.status === 'CONNECTED');
+    setConnectedYouTubeAccounts(ytAccs);
+    if (ytAccs.length > 0) {
+      setSelectedYouTubeAccountId(ytAccs[0].id);
+    }
+
+    const xAccs = accounts.filter(
+      (a) => (a.platform === SocialSchedulerPlatform.X || (a.provider as any) === 'X') && a.status === 'CONNECTED'
+    );
+    setConnectedXAccounts(xAccs);
+    if (xAccs.length > 0) {
+      setSelectedXAccountId(xAccs[0].id);
+      setXPublishMode('LIVE_X');
+    } else {
+      setXPublishMode('MOCK');
+    }
+
+    setInstagramPublishMode('LIVE_META');
+  }, [selectedWorkspace.id]);
 
   const isVideo = mediaAsset ? mediaAsset.mimeType.startsWith('video/') : false;
 
@@ -335,12 +424,99 @@ export default function NewPostStudioPage() {
 
     const targets: Sprint1PublishTarget[] = selectedPlatforms.map((p, idx) => {
       const conf = PLATFORMS_CONFIG.find((c) => c.platform === p);
+      const isFb = p === SocialSchedulerPlatform.FACEBOOK;
+      const isIg = p === SocialSchedulerPlatform.INSTAGRAM;
+      const isPin = p === SocialSchedulerPlatform.PINTEREST;
+      const isYt = p === SocialSchedulerPlatform.YOUTUBE;
+      const isX = p === SocialSchedulerPlatform.X;
+      const isLiveFb = isFb && facebookPublishMode === 'LIVE_META' && selectedFacebookAccountId;
+      const isLiveIg = isIg && instagramPublishMode === 'LIVE_META' && selectedInstagramAccountId;
+      const isLivePin = isPin && pinterestPublishMode === 'LIVE_PINTEREST' && selectedPinterestAccountId;
+      const isLiveYt = isYt && youtubePublishMode === 'LIVE_GOOGLE' && selectedYouTubeAccountId;
+      const isLiveX = isX && xPublishMode === 'LIVE_X' && selectedXAccountId;
+      const isLive = isLiveFb || isLiveIg || isLivePin || isLiveYt || isLiveX;
+      const selectedAcc = isLiveFb
+        ? connectedFacebookAccounts.find((a) => a.id === selectedFacebookAccountId)
+        : isLiveIg
+        ? connectedInstagramAccounts.find((a) => a.id === selectedInstagramAccountId)
+        : isLivePin
+        ? connectedPinterestAccounts.find((a) => a.id === selectedPinterestAccountId)
+        : isLiveYt
+        ? connectedYouTubeAccounts.find((a) => a.id === selectedYouTubeAccountId)
+        : isLiveX
+        ? connectedXAccounts.find((a) => a.id === selectedXAccountId)
+        : null;
+
+      const publishMode =
+        isLiveFb || isLiveIg
+          ? 'LIVE_META'
+          : isLivePin
+          ? 'LIVE_PINTEREST'
+          : isLiveYt
+          ? 'LIVE_GOOGLE'
+          : isLiveX
+          ? 'LIVE_X'
+          : 'MOCK';
+      const socialAccountId = isLiveFb
+        ? selectedFacebookAccountId
+        : isLiveIg
+        ? selectedInstagramAccountId
+        : isLivePin
+        ? selectedPinterestAccountId
+        : isLiveYt
+        ? selectedYouTubeAccountId
+        : isLiveX
+        ? selectedXAccountId
+        : undefined;
+
+      const pinOpts = isLivePin
+        ? {
+            pinType: 'IMAGE',
+            title: pinTitle || postTitle || caption.slice(0, 100),
+            description: pinDescription || caption,
+            destinationLink: pinDestinationLink || null,
+            boardId: selectedPinterestBoardId,
+          }
+        : undefined;
+
+      const ytOpts = isLiveYt
+        ? {
+            title: youtubeTitle || postTitle || 'YouTube Video Walkthrough',
+            description: youtubeDescription || caption || '',
+            privacyStatus: youtubePrivacyStatus,
+            madeForKids: youtubeMadeForKids === 'yes',
+            tags: youtubeTagsStr ? youtubeTagsStr.split(',').map((s) => s.trim()).filter(Boolean) : [],
+            categoryId: youtubeCategoryId || '22',
+          }
+        : undefined;
+
+      const xOpts = isLiveX
+        ? {
+            text: xText || postTitle || caption,
+            containsUrl: Boolean(xContainsUrl || (xText || caption || '').match(/https?:\/\//)),
+            madeWithAi: xMadeWithAi,
+            paidPartnership: xPaidPartnership,
+            costAcknowledged: xCostAcknowledged,
+            estimatedCostUsd: xEstimatedCostUsd || '0.015',
+          }
+        : undefined;
+
+      const platformOpts = pinOpts || ytOpts || xOpts;
+
       return {
         id: `tgt_${Date.now()}_${idx}`,
         postId: '',
         workspaceId: selectedWorkspace.id,
         platform: p,
-        mockAccountName: conf ? conf.mockAccount : `${p} Demo`,
+        publishMode,
+        socialAccountId,
+        instagramFormat: isLiveIg ? (isVideo ? 'REEL_VIDEO' : 'FEED_IMAGE') : undefined,
+        pinterestBoardId: isLivePin ? selectedPinterestBoardId : undefined,
+        xCostAcknowledgedAt: isLiveX && xCostAcknowledged ? new Date().toISOString() : undefined,
+        xCostAcknowledgedBy: isLiveX && xCostAcknowledged ? 'usr_admin' : undefined,
+        platformOptionsJson: platformOpts,
+        platformOptions: platformOpts,
+        mockAccountName: selectedAcc ? selectedAcc.displayName : conf ? conf.mockAccount : `${p} Demo`,
         status: SocialSchedulerTargetStatus.MOCK_READY,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -794,48 +970,563 @@ export default function NewPostStudioPage() {
                 {PLATFORMS_CONFIG.map((item) => {
                   const isBlocked = !isVideo && !item.supportsImages;
                   const isSelected = selectedPlatforms.includes(item.platform);
+                  const isFacebook = item.platform === SocialSchedulerPlatform.FACEBOOK;
+                  const isInstagram = item.platform === SocialSchedulerPlatform.INSTAGRAM;
+                  const isPinterest = item.platform === SocialSchedulerPlatform.PINTEREST;
+                  const isYouTube = item.platform === SocialSchedulerPlatform.YOUTUBE;
+                  const isX = item.platform === SocialSchedulerPlatform.X;
+                  const hasConnectedFb = isFacebook && connectedFacebookAccounts.length > 0;
+                  const hasConnectedIg = isInstagram && connectedInstagramAccounts.length > 0;
+                  const hasConnectedPin = isPinterest && connectedPinterestAccounts.length > 0;
+                  const hasConnectedYt = isYouTube && connectedYouTubeAccounts.length > 0;
+                  const hasConnectedX = isX && connectedXAccounts.length > 0;
 
                   return (
                     <div
                       key={item.platform}
-                      onClick={() => !isBlocked && togglePlatform(item.platform)}
-                      className={`p-4 rounded-xl border flex items-center justify-between transition-all ${
+                      className={`p-4 rounded-xl border transition-all ${
                         isBlocked
                           ? 'opacity-40 cursor-not-allowed bg-zinc-900/40 border-white/5'
                           : isSelected
-                          ? 'bg-[#D6B46A]/10 border-[#D6B46A]/50 cursor-pointer'
-                          : 'bg-zinc-900/60 border-white/5 hover:border-white/10 cursor-pointer'
+                          ? 'bg-[#D6B46A]/10 border-[#D6B46A]/50'
+                          : 'bg-zinc-900/60 border-white/5 hover:border-white/10'
                       }`}
                     >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-white">{item.name}</span>
-                          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-white/5 border border-white/10 text-zinc-400">
-                            Mock Ready
-                          </span>
-                        </div>
-                        <div className="text-xs text-zinc-400 font-mono">{item.mockAccount}</div>
-                        {isBlocked && (
-                          <div className="text-[11px] text-rose-400 font-mono">
-                            Blocked: YouTube requires video upload.
+                      <div
+                        onClick={() => !isBlocked && togglePlatform(item.platform)}
+                        className="flex items-center justify-between cursor-pointer"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-white">{item.name}</span>
+                            {isFacebook ? (
+                              hasConnectedFb ? (
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/30 text-blue-400">
+                                  {facebookPublishMode === 'LIVE_META' ? 'Live Connected' : 'Mock Mode'}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                                  Not Connected (Mock Mode)
+                                </span>
+                              )
+                            ) : isInstagram ? (
+                              hasConnectedIg ? (
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-pink-500/10 border border-pink-500/30 text-pink-400">
+                                  {instagramPublishMode === 'LIVE_META' ? 'Live Connected' : 'Mock Mode'}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                                  Not Connected (Mock Mode)
+                                </span>
+                              )
+                            ) : isPinterest ? (
+                              hasConnectedPin ? (
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-red-500/10 border border-red-500/30 text-red-400">
+                                  {pinterestPublishMode === 'LIVE_PINTEREST' ? 'Live Connected' : 'Mock Mode'}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                                  Not Connected (Mock Mode)
+                                </span>
+                              )
+                            ) : isYouTube ? (
+                              hasConnectedYt ? (
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-red-600/10 border border-red-500/30 text-red-500">
+                                  {youtubePublishMode === 'LIVE_GOOGLE' ? 'Live Connected' : 'Mock Mode'}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                                  Not Connected (Mock Mode)
+                                </span>
+                              )
+                            ) : isX ? (
+                              hasConnectedX ? (
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/10 border border-sky-500/30 text-sky-400">
+                                  {xPublishMode === 'LIVE_X' ? 'Live Connected · Paid API' : 'Mock Mode'}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                                  Not Connected (Mock Mode)
+                                </span>
+                              )
+                            ) : (
+                              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-white/5 border border-white/10 text-zinc-400">
+                                Mock Ready
+                              </span>
+                            )}
                           </div>
-                        )}
-                        {item.warning && (
-                          <div className="text-[11px] text-amber-400/80 font-mono">{item.warning}</div>
-                        )}
+                          <div className="text-xs text-zinc-400 font-mono">
+                            {isFacebook && hasConnectedFb && facebookPublishMode === 'LIVE_META'
+                              ? `Connected Facebook Page • ${connectedFacebookAccounts.find((a) => a.id === selectedFacebookAccountId)?.displayName || 'Select Page'}`
+                              : isInstagram && hasConnectedIg && instagramPublishMode === 'LIVE_META'
+                              ? `Connected Instagram • ${connectedInstagramAccounts.find((a) => a.id === selectedInstagramAccountId)?.displayName || 'Select Account'}`
+                              : item.mockAccount}
+                          </div>
+                          {isBlocked && (
+                            <div className="text-[11px] text-rose-400 font-mono">
+                              Blocked: YouTube requires video upload.
+                            </div>
+                          )}
+                          {item.warning && (
+                            <div className="text-[11px] text-amber-400/80 font-mono">{item.warning}</div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center">
+                          <div
+                            className={`h-5 w-5 rounded border flex items-center justify-center ${
+                              isSelected
+                                ? 'bg-[#D6B46A] border-[#D6B46A] text-zinc-950'
+                                : 'border-zinc-700 bg-zinc-900'
+                            }`}
+                          >
+                            {isSelected && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="flex items-center">
-                        <div
-                          className={`h-5 w-5 rounded border flex items-center justify-center ${
-                            isSelected
-                              ? 'bg-[#D6B46A] border-[#D6B46A] text-zinc-950'
-                              : 'border-zinc-700 bg-zinc-900'
-                          }`}
-                        >
-                          {isSelected && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                      {/* Facebook Page Dropdown / Connect Action */}
+                      {isFacebook && isSelected && (
+                        <div className="mt-3 pt-3 border-t border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                          {hasConnectedFb ? (
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full">
+                              <label className="text-zinc-400 font-mono text-[11px]">Facebook Page:</label>
+                              <select
+                                value={selectedFacebookAccountId || ''}
+                                onChange={(e) => setSelectedFacebookAccountId(e.target.value)}
+                                className="bg-zinc-950 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-zinc-200 focus:outline-none focus:border-blue-500"
+                              >
+                                {connectedFacebookAccounts.map((acc) => (
+                                  <option key={acc.id} value={acc.id}>
+                                    {acc.displayName} ({acc.externalAccountIdMasked || acc.externalAccountId})
+                                  </option>
+                                ))}
+                              </select>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setFacebookPublishMode((prev) => (prev === 'LIVE_META' ? 'MOCK' : 'LIVE_META'))
+                                }
+                                className="text-[11px] font-mono text-zinc-400 hover:text-white underline ml-auto"
+                              >
+                                Mode: {facebookPublishMode === 'LIVE_META' ? 'Live' : 'Mock'}
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between w-full">
+                              <span className="text-[11px] text-zinc-400">
+                                Connect Meta to enable live publishing for {selectedWorkspace.name}.
+                              </span>
+                              <Link
+                                href="/app/social-accounts"
+                                className="px-3 py-1 rounded bg-blue-600/20 text-blue-400 border border-blue-500/30 text-[11px] font-medium hover:bg-blue-600/30 transition-colors"
+                              >
+                                Connect Meta
+                              </Link>
+                            </div>
+                          )}
                         </div>
-                      </div>
+                      )}
+
+                      {/* Instagram Account Dropdown / Connect Action */}
+                      {isInstagram && isSelected && (
+                        <div className="mt-3 pt-3 border-t border-white/5 flex flex-col gap-3 text-xs">
+                          {hasConnectedIg ? (
+                            <div className="space-y-2 w-full">
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full">
+                                <label className="text-zinc-400 font-mono text-[11px]">Instagram Account:</label>
+                                <select
+                                  value={selectedInstagramAccountId || ''}
+                                  onChange={(e) => setSelectedInstagramAccountId(e.target.value)}
+                                  className="bg-zinc-950 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-zinc-200 focus:outline-none focus:border-pink-500"
+                                >
+                                  {connectedInstagramAccounts.map((acc) => (
+                                    <option key={acc.id} value={acc.id}>
+                                      {acc.displayName} ({acc.externalAccountIdMasked || acc.externalAccountId})
+                                    </option>
+                                  ))}
+                                </select>
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setInstagramPublishMode((prev) => (prev === 'LIVE_META' ? 'MOCK' : 'LIVE_META'))
+                                  }
+                                  className="text-[11px] font-mono text-zinc-400 hover:text-white underline ml-auto"
+                                >
+                                  Mode: {instagramPublishMode === 'LIVE_META' ? 'Live' : 'Mock'}
+                                </button>
+                              </div>
+
+                              <div className="flex items-center justify-between p-2 rounded-lg bg-black/30 border border-white/5 text-[11px] font-mono text-zinc-400">
+                                <span>Format: <strong className="text-white">{isVideo ? 'Reel / Video (MP4)' : 'Feed Image (JPEG)'}</strong></span>
+                                <span className="text-zinc-500 text-[10px]">Media Container Lifecycle</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between w-full">
+                              <span className="text-[11px] text-zinc-400">
+                                Connect Instagram Professional account to enable live publishing for {selectedWorkspace.name}.
+                              </span>
+                              <Link
+                                href="/app/social-accounts"
+                                className="px-3 py-1 rounded bg-pink-600/20 text-pink-400 border border-pink-500/30 text-[11px] font-medium hover:bg-pink-600/30 transition-colors"
+                              >
+                                Connect Instagram
+                              </Link>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {/* Pinterest Dropdown & Pin Fields */}
+                      {isPinterest && isSelected && (
+                        <div className="mt-3 pt-3 border-t border-white/5 flex flex-col gap-3 text-xs">
+                          {hasConnectedPin ? (
+                            <div className="space-y-3 w-full">
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full">
+                                <label className="text-zinc-400 font-mono text-[11px]">Pinterest Account:</label>
+                                <select
+                                  value={selectedPinterestAccountId || ''}
+                                  onChange={(e) => {
+                                    setSelectedPinterestAccountId(e.target.value);
+                                    const b = sprint1Storage.getPinterestBoards(selectedWorkspace.id, e.target.value);
+                                    setPinterestBoards(b);
+                                    if (b.length > 0) setSelectedPinterestBoardId(b[0].id);
+                                  }}
+                                  className="bg-zinc-950 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-zinc-200 focus:outline-none focus:border-red-500"
+                                >
+                                  {connectedPinterestAccounts.map((acc) => (
+                                    <option key={acc.id} value={acc.id}>
+                                      {acc.displayName} (@{acc.username})
+                                    </option>
+                                  ))}
+                                </select>
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPinterestPublishMode((prev) => (prev === 'LIVE_PINTEREST' ? 'MOCK' : 'LIVE_PINTEREST'))
+                                  }
+                                  className="text-[11px] font-mono text-zinc-400 hover:text-white underline ml-auto"
+                                >
+                                  Mode: {pinterestPublishMode === 'LIVE_PINTEREST' ? 'Live' : 'Mock'}
+                                </button>
+                              </div>
+
+                              {pinterestPublishMode === 'LIVE_PINTEREST' && (
+                                <div className="space-y-2.5 p-3 rounded-xl bg-black/40 border border-red-500/20">
+                                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                    <label className="text-zinc-400 font-mono text-[11px] min-w-[90px]">Target Board:</label>
+                                    <select
+                                      value={selectedPinterestBoardId || ''}
+                                      onChange={(e) => setSelectedPinterestBoardId(e.target.value)}
+                                      className="w-full bg-zinc-950 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-red-500"
+                                    >
+                                      {pinterestBoards.length === 0 ? (
+                                        <option value="">No boards found</option>
+                                      ) : (
+                                        pinterestBoards.map((b) => (
+                                          <option key={b.id} value={b.id}>
+                                            {b.name} ({b.privacy || 'PUBLIC'})
+                                          </option>
+                                        ))
+                                      )}
+                                    </select>
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <label className="text-zinc-400 font-mono text-[11px]">Pin Title:</label>
+                                    <input
+                                      type="text"
+                                      value={pinTitle}
+                                      onChange={(e) => setPinTitle(e.target.value)}
+                                      placeholder={postTitle || 'Example: Luxury 3BHK Walkthrough'}
+                                      className="w-full bg-zinc-950 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-red-500"
+                                    />
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <label className="text-zinc-400 font-mono text-[11px]">Destination Link (Optional):</label>
+                                    <input
+                                      type="url"
+                                      value={pinDestinationLink}
+                                      onChange={(e) => setPinDestinationLink(e.target.value)}
+                                      placeholder="https://client-project.com/villa"
+                                      className="w-full bg-zinc-950 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-red-500"
+                                    />
+                                  </div>
+
+                                  {isVideo && (
+                                    <div className="p-2 rounded bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300 font-mono">
+                                      Notice: Video Pins are not supported in Sprint 5. Image Pins only.
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between w-full">
+                              <span className="text-[11px] text-zinc-400">
+                                Connect Pinterest to enable live Pin publishing for {selectedWorkspace.name}.
+                              </span>
+                              <Link
+                                href="/app/social-accounts"
+                                className="px-3 py-1 rounded bg-red-600/20 text-red-400 border border-red-500/30 text-[11px] font-medium hover:bg-red-600/30 transition-colors"
+                              >
+                                Connect Pinterest
+                              </Link>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {/* YouTube Dropdown & Video Metadata Fields (Sprint 6) */}
+                      {isYouTube && isSelected && (
+                        <div className="mt-3 pt-3 border-t border-white/5 flex flex-col gap-3 text-xs">
+                          {hasConnectedYt ? (
+                            <div className="space-y-3 w-full">
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full">
+                                <label className="text-zinc-400 font-mono text-[11px]">YouTube Channel:</label>
+                                <select
+                                  value={selectedYouTubeAccountId || ''}
+                                  onChange={(e) => setSelectedYouTubeAccountId(e.target.value)}
+                                  className="bg-zinc-950 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-zinc-200 focus:outline-none focus:border-red-500"
+                                >
+                                  {connectedYouTubeAccounts.map((acc) => (
+                                    <option key={acc.id} value={acc.id}>
+                                      {acc.displayName} ({acc.username ? `@${acc.username}` : acc.externalAccountIdMasked})
+                                    </option>
+                                  ))}
+                                </select>
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setYoutubePublishMode((prev) => (prev === 'LIVE_GOOGLE' ? 'MOCK' : 'LIVE_GOOGLE'))
+                                  }
+                                  className="text-[11px] font-mono text-zinc-400 hover:text-white underline ml-auto"
+                                >
+                                  Mode: {youtubePublishMode === 'LIVE_GOOGLE' ? 'Live' : 'Mock'}
+                                </button>
+                              </div>
+
+                              {youtubePublishMode === 'LIVE_GOOGLE' && (
+                                <div className="space-y-2.5 p-3 rounded-xl bg-black/40 border border-red-500/20">
+                                  <div className="space-y-1">
+                                    <div className="flex items-center justify-between">
+                                      <label className="text-zinc-400 font-mono text-[11px]">YouTube Title (Max 100 chars):</label>
+                                      <span className={`text-[10px] font-mono ${(youtubeTitle || postTitle).length > 100 ? 'text-rose-400' : 'text-zinc-500'}`}>
+                                        {(youtubeTitle || postTitle).length}/100
+                                      </span>
+                                    </div>
+                                    <input
+                                      type="text"
+                                      maxLength={100}
+                                      value={youtubeTitle}
+                                      onChange={(e) => setYoutubeTitle(e.target.value)}
+                                      placeholder={postTitle || 'Luxury Sky Villa Walkthrough | Mantri Developers'}
+                                      className="w-full bg-zinc-950 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-red-500"
+                                    />
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <label className="text-zinc-400 font-mono text-[11px]">YouTube Description:</label>
+                                    <textarea
+                                      rows={2}
+                                      value={youtubeDescription}
+                                      onChange={(e) => setYoutubeDescription(e.target.value)}
+                                      placeholder={caption || 'Exclusive property walkthrough and project highlights.'}
+                                      className="w-full bg-zinc-950 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-red-500"
+                                    />
+                                  </div>
+
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                      <label className="text-zinc-400 font-mono text-[11px]">Visibility:</label>
+                                      <select
+                                        value={youtubePrivacyStatus}
+                                        onChange={(e) => setYoutubePrivacyStatus(e.target.value as any)}
+                                        className="w-full bg-zinc-950 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-red-500"
+                                      >
+                                        <option value="private">Private (Recommended for unverified projects)</option>
+                                        <option value="unlisted">Unlisted</option>
+                                        <option value="public">Public</option>
+                                      </select>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                      <label className="text-zinc-400 font-mono text-[11px]">Made for Kids:</label>
+                                      <select
+                                        value={youtubeMadeForKids}
+                                        onChange={(e) => setYoutubeMadeForKids(e.target.value as any)}
+                                        className="w-full bg-zinc-950 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-red-500"
+                                      >
+                                        <option value="no">No, it is not made for kids</option>
+                                        <option value="yes">Yes, it is made for kids</option>
+                                      </select>
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <label className="text-zinc-400 font-mono text-[11px]">Tags (Comma-separated):</label>
+                                    <input
+                                      type="text"
+                                      value={youtubeTagsStr}
+                                      onChange={(e) => setYoutubeTagsStr(e.target.value)}
+                                      placeholder="real estate, luxury homes, sky villa, Bangalore"
+                                      className="w-full bg-zinc-950 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-red-500"
+                                    />
+                                  </div>
+
+                                  {!isVideo && (
+                                    <div className="p-2 rounded bg-rose-500/10 border border-rose-500/20 text-[11px] text-rose-300 font-mono">
+                                      Notice: YouTube requires an MP4 video file. Image posts cannot be published to YouTube.
+                                    </div>
+                                  )}
+
+                                  <div className="p-2 rounded bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300 font-mono">
+                                    Quota Guard: YouTube uploads are limited to 100 per day project-wide. Videos may be set to private if the API project is unverified.
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between w-full">
+                              <span className="text-[11px] text-zinc-400">
+                                Connect YouTube to enable live video publishing for {selectedWorkspace.name}.
+                              </span>
+                              <Link
+                                href="/app/social-accounts"
+                                className="px-3 py-1 rounded bg-red-600/20 text-red-400 border border-red-500/30 text-[11px] font-medium hover:bg-red-600/30 transition-colors"
+                              >
+                                Connect YouTube
+                              </Link>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {/* Twitter/X Dropdown & Paid API Fields (Sprint 7) */}
+                      {isX && isSelected && (
+                        <div className="mt-3 pt-3 border-t border-white/5 flex flex-col gap-3 text-xs">
+                          {hasConnectedX ? (
+                            <div className="space-y-3 w-full">
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full">
+                                <label className="text-zinc-400 font-mono text-[11px]">Twitter/X Account:</label>
+                                <select
+                                  value={selectedXAccountId || ''}
+                                  onChange={(e) => setSelectedXAccountId(e.target.value)}
+                                  className="bg-zinc-950 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-zinc-200 focus:outline-none focus:border-sky-500"
+                                >
+                                  {connectedXAccounts.map((acc) => (
+                                    <option key={acc.id} value={acc.id}>
+                                      @{acc.username || acc.displayName} (Paid Publishing Enabled)
+                                    </option>
+                                  ))}
+                                </select>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setXPublishMode((prev) => (prev === 'LIVE_X' ? 'MOCK' : 'LIVE_X'))}
+                                  className="text-[11px] font-mono text-zinc-400 hover:text-white underline ml-auto"
+                                >
+                                  Mode: {xPublishMode === 'LIVE_X' ? 'Live' : 'Mock'}
+                                </button>
+                              </div>
+
+                              {xPublishMode === 'LIVE_X' && (
+                                <div className="space-y-3 p-3 rounded-xl bg-black/40 border border-sky-500/20">
+                                  <div className="space-y-1">
+                                    <div className="flex items-center justify-between">
+                                      <label className="text-zinc-400 font-mono text-[11px]">
+                                        X Post Text (Max 280 chars):
+                                      </label>
+                                      <span
+                                        className={`text-[10px] font-mono ${
+                                          (xText || caption || postTitle).length > 280 ? 'text-rose-400' : 'text-zinc-500'
+                                        }`}
+                                      >
+                                        {(xText || caption || postTitle).length}/280
+                                      </span>
+                                    </div>
+                                    <textarea
+                                      rows={2}
+                                      maxLength={280}
+                                      value={xText}
+                                      onChange={(e) => {
+                                        setXText(e.target.value);
+                                        const urlPattern = /https?:\/\/[^\s]+/i;
+                                        const hasUrl = urlPattern.test(e.target.value);
+                                        setXContainsUrl(hasUrl);
+                                        setXEstimatedCostUsd(hasUrl ? '0.200' : '0.015');
+                                      }}
+                                      placeholder={caption || 'Write the X-specific version of this post...'}
+                                      className="w-full bg-zinc-950 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-sky-500 resize-none font-sans"
+                                    />
+                                  </div>
+
+                                  <div className="flex flex-wrap items-center gap-4">
+                                    <label className="flex items-center gap-2 cursor-pointer text-xs text-zinc-300">
+                                      <input
+                                        type="checkbox"
+                                        checked={xMadeWithAi}
+                                        onChange={(e) => setXMadeWithAi(e.target.checked)}
+                                        className="rounded bg-zinc-900 border-white/20 text-sky-600 focus:ring-0"
+                                      />
+                                      <span>Contains AI-generated media</span>
+                                    </label>
+
+                                    <label className="flex items-center gap-2 cursor-pointer text-xs text-zinc-300">
+                                      <input
+                                        type="checkbox"
+                                        checked={xPaidPartnership}
+                                        onChange={(e) => setXPaidPartnership(e.target.checked)}
+                                        className="rounded bg-zinc-900 border-white/20 text-sky-600 focus:ring-0"
+                                      />
+                                      <span>Paid partnership</span>
+                                    </label>
+                                  </div>
+
+                                  {/* Paid API Cost Card & Acknowledgement */}
+                                  <div className="p-3 rounded-lg bg-sky-950/20 border border-sky-500/30 space-y-2">
+                                    <div className="flex items-center justify-between text-xs font-mono">
+                                      <span className="text-sky-300 font-semibold">X Paid API Action:</span>
+                                      <span className="text-white font-bold bg-sky-500/20 px-2 py-0.5 rounded border border-sky-500/30">
+                                        Est. ${xEstimatedCostUsd} USD {xContainsUrl ? '(With Link)' : '(Standard)'}
+                                      </span>
+                                    </div>
+                                    <p className="text-[11px] text-zinc-400">
+                                      Publishing to X consumes paid API credits per write operation. Rates are subject to X API Developer pricing.
+                                    </p>
+                                    <label className="flex items-start gap-2 cursor-pointer pt-1">
+                                      <input
+                                        type="checkbox"
+                                        checked={xCostAcknowledged}
+                                        onChange={(e) => setXCostAcknowledged(e.target.checked)}
+                                        className="mt-0.5 rounded bg-zinc-900 border-white/20 text-sky-600 focus:ring-0"
+                                      />
+                                      <span className="text-[11px] text-zinc-200 font-medium">
+                                        I understand and approve this estimated X API cost for this scheduled post.
+                                      </span>
+                                    </label>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between w-full">
+                              <span className="text-[11px] text-zinc-400">
+                                Connect an X account to enable live publishing for {selectedWorkspace.name}.
+                              </span>
+                              <Link
+                                href="/app/social-accounts"
+                                className="px-3 py-1 rounded bg-zinc-800 text-white border border-white/20 text-[11px] font-medium hover:bg-zinc-700 transition-colors"
+                              >
+                                Connect X
+                              </Link>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -853,7 +1544,60 @@ export default function NewPostStudioPage() {
                 <button
                   type="button"
                   disabled={selectedPlatforms.length === 0}
-                  onClick={() => setCurrentStage(5)}
+                  onClick={() => {
+                    setError(null);
+                    if (
+                      selectedPlatforms.includes(SocialSchedulerPlatform.PINTEREST) &&
+                      pinterestPublishMode === 'LIVE_PINTEREST'
+                    ) {
+                      if (!selectedPinterestBoardId) {
+                        setError('Please select a Pinterest board before continuing.');
+                        return;
+                      }
+                      if (isVideo) {
+                        setError('Video Pins are not supported in Sprint 5. Please use an image.');
+                        return;
+                      }
+                    }
+
+                    if (
+                      selectedPlatforms.includes(SocialSchedulerPlatform.YOUTUBE) &&
+                      youtubePublishMode === 'LIVE_GOOGLE'
+                    ) {
+                      if (!isVideo) {
+                        setError('YouTube requires an MP4 video upload. Image posts cannot be scheduled to YouTube.');
+                        return;
+                      }
+                      if (!selectedYouTubeAccountId) {
+                        setError('Please select a YouTube channel before continuing.');
+                        return;
+                      }
+                      if (!youtubeTitle && !postTitle) {
+                        setError('A video title is required for YouTube live publishing.');
+                        return;
+                      }
+                    }
+
+                    if (
+                      selectedPlatforms.includes(SocialSchedulerPlatform.X) &&
+                      xPublishMode === 'LIVE_X'
+                    ) {
+                      if (!selectedXAccountId) {
+                        setError('Please select a connected Twitter/X account before continuing.');
+                        return;
+                      }
+                      if (!xCostAcknowledged) {
+                        setError('Please acknowledge the estimated X API charges before continuing.');
+                        return;
+                      }
+                      if ((xText || caption || postTitle).length > 280) {
+                        setError('X post text exceeds the 280-character limit.');
+                        return;
+                      }
+                    }
+
+                    setCurrentStage(5);
+                  }}
                   className="px-6 py-2 rounded-xl text-xs font-semibold text-zinc-950 bg-[#D6B46A] hover:bg-[#c4a259] transition-all shadow-lg shadow-[#D6B46A]/20 disabled:opacity-50 flex items-center gap-1.5"
                 >
                   <span>Continue to Schedule</span>
@@ -1061,6 +1805,12 @@ export default function NewPostStudioPage() {
                       <Check className="h-4 w-4" />
                       <span>{selectedPlatforms.length} Mock target platform(s) selected</span>
                     </div>
+                    {selectedPlatforms.includes(SocialSchedulerPlatform.X) && xPublishMode === 'LIVE_X' && (
+                      <div className="flex items-center gap-2 text-sky-400">
+                        <Check className="h-4 w-4" />
+                        <span>X Paid API Cost Acknowledged: Est. ${xEstimatedCostUsd} USD</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 text-emerald-400">
                       <Check className="h-4 w-4" />
                       <span>Scheduled for: {scheduleDate} {scheduleTime} ({timezone})</span>

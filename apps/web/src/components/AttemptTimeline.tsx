@@ -66,6 +66,62 @@ export const AttemptTimeline: React.FC<AttemptTimelineProps> = ({ attempts }) =>
             FAILED
           </span>
         );
+      case SocialPublishAttemptStatus.REAUTH_REQUIRED:
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-rose-500/10 text-rose-300 border border-rose-500/20">
+            <AlertTriangle className="w-3 h-3" />
+            REAUTH REQUIRED
+          </span>
+        );
+      case SocialPublishAttemptStatus.CONTAINER_CREATED:
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-pink-500/10 text-pink-300 border border-pink-500/20">
+            <Cpu className="w-3 h-3" />
+            CONTAINER CREATED
+          </span>
+        );
+      case SocialPublishAttemptStatus.PLATFORM_PROCESSING:
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-purple-500/10 text-purple-300 border border-purple-500/20 animate-pulse">
+            <RotateCw className="w-3 h-3 animate-spin" />
+            CONTAINER PROCESSING
+          </span>
+        );
+      case SocialPublishAttemptStatus.LIMIT_REACHED:
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20">
+            <AlertTriangle className="w-3 h-3" />
+            LIMIT REACHED
+          </span>
+        );
+      case SocialPublishAttemptStatus.RATE_LIMITED:
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20">
+            <AlertTriangle className="w-3 h-3" />
+            RATE LIMITED
+          </span>
+        );
+      case SocialPublishAttemptStatus.QUOTA_BLOCKED:
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-rose-500/10 text-rose-300 border border-rose-500/20">
+            <XCircle className="w-3 h-3" />
+            QUOTA BLOCKED
+          </span>
+        );
+      case SocialPublishAttemptStatus.COST_BLOCKED:
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20">
+            <AlertTriangle className="w-3 h-3" />
+            COST BLOCKED (PAID API)
+          </span>
+        );
+      case SocialPublishAttemptStatus.PRIVATE_RESTRICTED:
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20">
+            <AlertTriangle className="w-3 h-3" />
+            PRIVATE (AUDIT RESTRICTED)
+          </span>
+        );
       case SocialPublishAttemptStatus.STARTED:
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 animate-pulse">
@@ -127,7 +183,7 @@ export const AttemptTimeline: React.FC<AttemptTimelineProps> = ({ attempts }) =>
                     ? 'bg-emerald-950 border-emerald-500 text-emerald-300'
                     : attempt.status === SocialPublishAttemptStatus.FAILED_RETRYABLE
                     ? 'bg-amber-950 border-amber-500 text-amber-300'
-                    : attempt.status === SocialPublishAttemptStatus.FAILED_PERMANENT
+                    : attempt.status === SocialPublishAttemptStatus.FAILED_PERMANENT || attempt.status === SocialPublishAttemptStatus.REAUTH_REQUIRED
                     ? 'bg-rose-950 border-rose-500 text-rose-300'
                     : 'bg-zinc-900 border-zinc-500 text-zinc-300'
                 }`}
@@ -145,6 +201,11 @@ export const AttemptTimeline: React.FC<AttemptTimelineProps> = ({ attempts }) =>
                     <span className="text-[11px] font-mono text-zinc-500">
                       Attempt #{attempt.attemptNumber}
                     </span>
+                    {attempt.platformLifecycleStage && (
+                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                        {attempt.platformLifecycleStage}
+                      </span>
+                    )}
                   </div>
                   {getStatusBadge(attempt.status)}
                 </div>

@@ -104,6 +104,48 @@ export const SchedulerStatusBanner: React.FC<SchedulerBannerProps> = ({ status, 
         </div>
       );
 
+    case SocialSchedulerPostStatus.PUBLISHED:
+      return (
+        <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400">
+            <CheckCircle2 className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="text-xs font-semibold text-blue-200">
+              Live publishing completed successfully
+            </h4>
+            <p className="text-[11px] text-blue-300/80">
+              This post was published directly to your connected social channels via provider APIs.
+            </p>
+          </div>
+        </div>
+      );
+
+    case SocialSchedulerPostStatus.REAUTH_REQUIRED:
+      return (
+        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-rose-500/20 text-rose-400">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-xs font-semibold text-rose-200">
+                Action Required: Social account re-authorization needed
+              </h4>
+              <p className="text-[11px] text-rose-300/80">
+                Meta access tokens have expired or permissions were revoked. Please reconnect the Facebook Page.
+              </p>
+            </div>
+          </div>
+          <a
+            href="/app/social-accounts"
+            className="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 text-xs font-mono transition-colors whitespace-nowrap"
+          >
+            Reconnect Account
+          </a>
+        </div>
+      );
+
     default:
       return null;
   }
